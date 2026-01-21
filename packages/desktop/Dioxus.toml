@@ -1,0 +1,6 @@
+[application]
+name = "WCO Player"
+default_platform = "desktop"
+
+[bundle]
+identifier = "com.wco-player.app"
