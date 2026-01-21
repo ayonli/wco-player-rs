@@ -12,7 +12,7 @@ impl UserAgent {
     pub fn as_str(&self) -> &'static str {
         match self {
             UserAgent::PostMan => "PostmanRuntime/7.45.0",
-            UserAgent::GoogleChrome => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+            UserAgent::GoogleChrome => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
         }
     }
 }

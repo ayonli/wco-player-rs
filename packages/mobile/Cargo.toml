@@ -2,10 +2,14 @@
 name = "mobile"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [dependencies]
 dioxus = { workspace = true, features = ["router", "fullstack"] }
 ui = { workspace = true }
+
+[build-dependencies]
+build-utils = { path = "../../build-utils" }
 
 [features]
 default = []

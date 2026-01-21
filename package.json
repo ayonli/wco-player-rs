@@ -1,0 +1,14 @@
+{
+    "scripts": {
+        "sanitize": "npm run sanitize:rs && npm run sanitize:ts",
+        "sanitize:rs": "cargo clippy --fix && cargo fmt",
+        "sanitize:ts": "deno lint --fix  && deno fmt"
+    },
+    "dependencies": {
+        "@tailwindcss/cli": "^4.1.18",
+        "tailwindcss": "^4.1.18"
+    },
+    "devDependencies": {
+        "typescript": "^5.9.3"
+    }
+}

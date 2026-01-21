@@ -1,0 +1,59 @@
+{
+    "fmt": {
+        "lineWidth": 100,
+        "indentWidth": 4,
+        "singleQuote": false,
+        "semiColons": false,
+        "newLineKind": "lf",
+        "proseWrap": "preserve",
+        "useBraces": "always",
+        "spaceSurroundingProperties": true,
+        "singleBodyPosition": "sameLine",
+        "trailingCommas": "onlyMultiLine",
+        "exclude": [
+            "dist",
+            "public",
+            "node_modules"
+        ]
+    },
+    "lint": {
+        "rules": {
+            "tags": [
+                "recommended",
+                "jsx"
+            ],
+            "include": [
+                "default-param-last",
+                "eqeqeq",
+                "explicit-function-return-type",
+                "explicit-module-boundary-types",
+                "guard-for-in",
+                "no-const-assign",
+                "no-eval",
+                "no-import-prefix",
+                "no-inferrable-types",
+                "no-non-null-asserted-optional-chain",
+                "no-self-compare",
+                "no-slow-types",
+                "no-sparse-arrays",
+                "no-sync-fn-in-async-fn",
+                "no-throw-literal",
+                "no-useless-rename",
+                "react-no-danger-with-children",
+                "react-rules-of-hooks",
+                "single-var-declarator",
+                "verbatim-module-syntax"
+            ],
+            "exclude": [
+                "no-sloppy-imports"
+            ]
+        },
+        "exclude": [
+            "common/index.ts",
+            "dist",
+            "public",
+            "node_modules",
+            "**/*.js"
+        ]
+    }
+}

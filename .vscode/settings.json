@@ -1,7 +1,14 @@
 {
+    "dioxus.formatOnSave": "enabled",
+    "editor.formatOnSave": true,
+    "deno-tools.enable": true,
     "cSpell.words": [
+        "fullhd",
         "futurama",
+        "onclick",
+        "referer",
         "reqwest",
-        "thiserror"
+        "thiserror",
+        "urlencoding"
     ]
 }

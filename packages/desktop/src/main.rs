@@ -1,72 +1,79 @@
 use dioxus::prelude::*;
+use views::{Player, Search};
+use wco::Series;
 
-use ui::Navbar;
-use views::{Blog, Home};
-
+mod api_client;
+mod server;
+mod video_js;
 mod views;
 
-#[derive(Debug, Clone, Routable, PartialEq)]
-#[rustfmt::skip]
-enum Route {
-    #[layout(DesktopNavbar)]
-    #[route("/")]
-    Home {},
-    #[route("/blog/:id")]
-    Blog { id: i32 },
-}
-
-const MAIN_CSS: Asset = asset!("/assets/main.css");
+const PLAYER_CSS: Asset = asset!("/assets/player.css");
+const TAILWIND_CSS: Asset = asset!("/assets/tailwind-output.css");
+const DX_COMPONENTS_THEME: Asset = asset!("/assets/dx-components-theme.css");
 
 fn main() {
-    #[cfg(feature = "desktop")]
-    {
-        use dioxus::desktop::{Config, WindowBuilder};
-        
-        dioxus::LaunchBuilder::new()
-            .with_cfg(Config::new().with_window(
-                WindowBuilder::new()
-                    .with_title("WCO Player")
-                    .with_always_on_top(false)
-                    .with_fullscreen(None) // 允许用户通过系统控制全屏
-                    .with_resizable(true)
-            ))
-            .launch(App);
-    }
-    
-    #[cfg(not(feature = "desktop"))]
-    {
-        dioxus::launch(App);
-    }
+    use dioxus::desktop::tao::dpi::LogicalSize;
+    use dioxus::desktop::{Config, WindowBuilder};
+
+    let window = WindowBuilder::new()
+        .with_title("WCO Player")
+        .with_always_on_top(false)
+        .with_resizable(true)
+        .with_inner_size(LogicalSize::new(1280.0, 800.0));
+
+    // Start combined server (video proxy + API)
+    eprintln!("🚀 Starting combined server...");
+    let server_port = server::start_server_sync();
+    eprintln!("✅ Server ready on port {}", server_port);
+
+    dioxus::LaunchBuilder::new()
+        .with_cfg(Config::new().with_window(window))
+        .with_context(ServerConfig { port: server_port })
+        .launch(App);
+}
+
+/// Server configuration shared via context
+#[derive(Clone, Copy)]
+pub struct ServerConfig {
+    pub port: u16,
+}
+
+/// Application state
+#[derive(Clone, PartialEq)]
+enum AppView {
+    /// Search page
+    Search,
+    /// Player page with selected series
+    Player(Series),
 }
 
 #[component]
 fn App() -> Element {
-    // Build cool things ✌️
+    let mut current_view = use_signal(|| AppView::Search);
 
     rsx! {
-        // Global app resources
-        document::Link { rel: "stylesheet", href: MAIN_CSS }
+        // Load styles (theme first for CSS variables, then player.css to override body styles)
+        document::Link { rel: "stylesheet", href: DX_COMPONENTS_THEME }
+        document::Stylesheet { href: TAILWIND_CSS }
+        document::Link { rel: "stylesheet", href: PLAYER_CSS }
 
-        Router::<Route> {}
-    }
-}
-
-/// A desktop-specific Router around the shared `Navbar` component
-/// which allows us to use the desktop-specific `Route` enum.
-#[component]
-fn DesktopNavbar() -> Element {
-    rsx! {
-        Navbar {
-            Link {
-                to: Route::Home {},
-                "Home"
-            }
-            Link {
-                to: Route::Blog { id: 1 },
-                "Blog"
-            }
+        // Render current view
+        match current_view() {
+            AppView::Search => rsx! {
+                Search {
+                    on_select: move |series: Series| {
+                        current_view.set(AppView::Player(series));
+                    },
+                }
+            },
+            AppView::Player(series) => rsx! {
+                Player {
+                    series,
+                    on_back: move |_| {
+                        current_view.set(AppView::Search);
+                    },
+                }
+            },
         }
-
-        Outlet::<Route> {}
     }
 }

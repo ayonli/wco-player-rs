@@ -64,16 +64,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ## Testing
 
 Run all tests (requires internet connection):
+
 ```bash
 cargo test -p wco
 ```
 
 Run a specific test:
+
 ```bash
 cargo test -p wco test_search
 ```
 
 Run tests with output:
+
 ```bash
 cargo test -p wco -- --nocapture
 ```

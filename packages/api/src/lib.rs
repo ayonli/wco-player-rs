@@ -1,8 +1,6 @@
-//! This crate contains all shared fullstack server functions.
-use dioxus::prelude::*;
+//! API layer for WCO player
+//! 
+//! This module is kept for potential future web deployment.
+//! For desktop, we use HTTP REST API instead (see packages/desktop/src/http_api.rs).
 
-/// Echo the user input on the server.
-#[post("/api/echo")]
-pub async fn echo(input: String) -> Result<String, ServerFnError> {
-    Ok(input)
-}
+// Module is mostly empty now, kept for future web support

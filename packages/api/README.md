@@ -3,6 +3,7 @@
 This crate contains all shared fullstack server functions. This is a great place to place any server-only logic you would like to expose in multiple platforms like a method that accesses your database or a method that sends an email.
 
 This crate will be built twice:
+
 1. Once for the server build with the `dioxus/server` feature enabled
 2. Once for the client build with the client feature disabled
 

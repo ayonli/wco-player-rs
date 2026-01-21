@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 dioxus = { workspace = true, features = ["fullstack"] }
+wco = { workspace = true }
+serde = { version = "1", features = ["derive"] }
 
 [features]
 server = ["dioxus/server"]

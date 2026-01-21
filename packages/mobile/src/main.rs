@@ -16,6 +16,7 @@ enum Route {
 }
 
 const MAIN_CSS: Asset = asset!("/assets/main.css");
+const TAILWIND_CSS: Asset = asset!("/assets/tailwind-output.css");
 
 fn main() {
     dioxus::launch(App);
@@ -27,6 +28,7 @@ fn App() -> Element {
 
     rsx! {
         // Global app resources
+        document::Stylesheet { href: TAILWIND_CSS }
         document::Link { rel: "stylesheet", href: MAIN_CSS }
 
         Router::<Route> {}

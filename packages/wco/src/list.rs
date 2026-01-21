@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{error::Result, user_agent::UserAgent, WcoError};
 
 /// Episode information
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Episode {
     pub title: String,
     pub url: String,

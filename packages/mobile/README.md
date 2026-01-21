@@ -15,7 +15,9 @@ mobile/
 ```
 
 ## Dependencies
+
 Since you have fullstack enabled, the mobile crate will be built two times:
+
 1. Once for the server build with the `server` feature enabled
 2. Once for the client build with the `mobile` feature enabled
 

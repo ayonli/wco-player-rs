@@ -1,5 +1,5 @@
-mod home;
-pub use home::Home;
+mod search;
+pub use search::Search;
 
-mod blog;
-pub use blog::Blog;
+mod player;
+pub use player::Player;
