@@ -8,7 +8,6 @@ mod video_js;
 mod views;
 
 const PLAYER_CSS: Asset = asset!("/assets/player.css");
-const TAILWIND_CSS: Asset = asset!("/assets/tailwind-output.css");
 const DX_COMPONENTS_THEME: Asset = asset!("/assets/dx-components-theme.css");
 
 fn main() {
@@ -54,7 +53,6 @@ fn App() -> Element {
     rsx! {
         // Load styles (theme first for CSS variables, then player.css to override body styles)
         document::Link { rel: "stylesheet", href: DX_COMPONENTS_THEME }
-        document::Stylesheet { href: TAILWIND_CSS }
         document::Link { rel: "stylesheet", href: PLAYER_CSS }
 
         // Render current view

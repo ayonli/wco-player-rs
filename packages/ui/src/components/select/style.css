@@ -2,7 +2,7 @@
   position: relative;
 }
 
-/* Override Tailwind's global button styles for Select trigger */
+/* Override global button styles for Select trigger */
 .select-trigger,
 .select-trigger button,
 button.select-trigger {

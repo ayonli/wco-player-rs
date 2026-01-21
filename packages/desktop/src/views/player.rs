@@ -2,7 +2,7 @@
 
 use crate::{api_client, ServerConfig};
 use dioxus::prelude::*;
-use ui::{EpisodeList, VideoPlayer};
+use ui::{EpisodeList, Select, SelectList, SelectOption, SelectTrigger, SelectValue, VideoPlayer};
 use wco::{Episode, Series, VideoInfo};
 
 /// Get the video URL for a specific quality
@@ -152,6 +152,16 @@ pub fn Player(
         });
     };
 
+    // Handle quality change
+    let handle_quality_change = {
+        let mut current_quality_clone = current_quality;
+        move |new_quality: Option<String>| {
+            if let Some(quality) = new_quality {
+                current_quality_clone.set(quality);
+            }
+        }
+    };
+
     // Build proxy URL for the video
     let video_src = video_info.read().as_ref().map(|info| {
         let video_url = get_quality_url(info, &current_quality());
@@ -173,12 +183,19 @@ pub fn Player(
         .map(|i| i.full_hd_url.is_some())
         .unwrap_or(false);
 
+    // Determine default quality - use SD if current_quality is empty
+    let default_quality = if current_quality().is_empty() {
+        "sd".to_string()
+    } else {
+        current_quality()
+    };
+
     rsx! {
         div {
             class: if is_fullscreen() { "player-page fullscreen-mode" } else { "player-page" },
             id: "player-page",
 
-            // Header with breadcrumb and back button (hidden in fullscreen, shown on hover)
+            // Header with breadcrumb, quality selector, and back button (hidden in fullscreen, shown on hover)
             div {
                 class: "player-header fullscreen-overlay",
                 id: "player-header",
@@ -191,7 +208,47 @@ pub fn Player(
                         span { class: "current", "{ep.title}" }
                     }
                 }
-                button { class: "back-button", onclick: move |_| on_back.call(()), "← Back to Search" }
+                div { class: "header-controls",
+                    if video_info().is_some() {
+                        div { class: "quality-selector",
+                            label { "Quality: " }
+                            Select::<String> {
+                                value: Some(default_quality.clone()),
+                                on_value_change: handle_quality_change,
+                                SelectTrigger { SelectValue {} }
+                                SelectList {
+                                    SelectOption::<String> {
+                                        value: "sd".to_string(),
+                                        text_value: "SD".to_string(),
+                                        index: 0usize,
+                                        "SD"
+                                    }
+                                    if has_hd {
+                                        SelectOption::<String> {
+                                            value: "hd".to_string(),
+                                            text_value: "HD".to_string(),
+                                            index: 1usize,
+                                            "HD"
+                                        }
+                                    }
+                                    if has_fhd {
+                                        SelectOption::<String> {
+                                            value: "fhd".to_string(),
+                                            text_value: "Full HD".to_string(),
+                                            index: 2usize,
+                                            "Full HD"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    button {
+                        class: "back-button",
+                        onclick: move |_| on_back.call(()),
+                        "← Back to Search"
+                    }
+                }
             }
 
             // Main content: sidebar + player

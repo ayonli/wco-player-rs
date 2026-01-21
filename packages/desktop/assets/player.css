@@ -188,9 +188,49 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 12px;
+    padding: 12px 20px;
     background: var(--bg-color);
     border-bottom: 1px solid var(--border-color);
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+/* Make Select trigger height match back-button */
+.header-controls .select-trigger {
+    padding: 6px 16px !important; /* Reduced from 8px to 6px to match back-button height */
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    box-sizing: border-box !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-md) !important;
+    margin: 0 !important;
+    /* Match back-button exactly */
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+/* Ensure SVG icon doesn't add extra height */
+.header-controls .select-trigger .select-expand-icon {
+    width: 16px !important;
+    height: 16px !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+}
+
+/* Make Select option height match back-button */
+.header-controls .select-list .select-option {
+    padding: 6px 16px !important; /* Match back-button padding */
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    min-height: 35px !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
 }
 
 .back-button {
@@ -325,28 +365,6 @@ body {
     background: #000;
 }
 
-.video-player-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 20px;
-    background: var(--bg-color);
-    border-bottom: 1px solid var(--border-color);
-}
-
-.video-title {
-    font-size: 18px;
-    font-weight: 600;
-}
-
-.quality-selector {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-}
-
-
 .video-player-area {
     flex: 1;
     display: flex;
@@ -360,6 +378,16 @@ body {
     height: 100%;
     max-height: calc(100vh - 120px);
 }
+
+
+.quality-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--text-color);
+}
+
 
 .video-placeholder,
 .video-loading,
@@ -591,6 +619,59 @@ body {
     background: rgba(255, 255, 255, 0.2);
 }
 
+/* Fix quality selector color in fullscreen mode */
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .quality-selector {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .quality-selector label {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Fix Select component colors in fullscreen mode */
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .select-trigger {
+    background: rgba(255, 255, 255, 0.1) !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+}
+
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .select-trigger:hover:not([data-disabled="true"]),
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .select-trigger:focus-visible {
+    background: rgba(255, 255, 255, 0.2) !important;
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+}
+
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .select-trigger span[data-placeholder="true"] {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .select-expand-icon {
+    stroke: rgba(255, 255, 255, 0.9) !important;
+}
+
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .select-list {
+    background: rgba(30, 41, 59, 0.98) !important;
+    background-color: rgba(30, 41, 59, 0.98) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .select-option {
+    color: white !important;
+}
+
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .select-option:hover:not([data-disabled="true"]),
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .select-option:focus-visible {
+    background: rgba(255, 255, 255, 0.1) !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+}
+
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .select-check-icon {
+    stroke: rgba(255, 255, 255, 0.9) !important;
+}
+
 /* Sidebar overlay (left) */
 .player-page.fullscreen-mode .episode-sidebar-wrapper.fullscreen-overlay {
     top: 0;
@@ -627,3 +708,4 @@ body {
     /* Semi-transparent blue for selected */
     color: white;
 }
+
