@@ -26,3 +26,7 @@ build-utils = { path = "../../build-utils" }
 default = []
 desktop = ["dioxus/desktop"]
 server = ["dioxus/server", "ui/server"]
+
+[[bin]]
+name = "WcoPlayer"   # This will be the name of the executable and bundle
+path = "src/main.rs"

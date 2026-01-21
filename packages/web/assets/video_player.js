@@ -251,12 +251,6 @@ export function setupFullscreenHover() {
             // Will be handled by mousemove event
         });
     }
-    if (controls) {
-        controls.addEventListener("mouseenter", showControls);
-        controls.addEventListener("mouseleave", () => {
-            // Will be handled by mousemove event
-        });
-    }
 }
 /**
  * Initialize video player controls
