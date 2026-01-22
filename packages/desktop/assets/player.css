@@ -193,6 +193,12 @@ body {
     border-bottom: 1px solid var(--border-color);
 }
 
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .header-controls {
     display: flex;
     align-items: center;
@@ -236,15 +242,17 @@ body {
 .back-button {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    font-size: 14px;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font-size: 18px;
     color: var(--text-color);
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition: background var(--transition);
+    transition: all var(--transition);
 }
 
 .back-button:hover {
@@ -385,6 +393,37 @@ body {
     gap: 8px;
     font-size: 14px;
     color: var(--text-color);
+}
+
+.auto-play-next-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font-size: 18px;
+    color: var(--text-color);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.auto-play-next-btn:hover {
+    background: var(--border-color);
+}
+
+.auto-play-next-btn.active {
+    color: white;
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.auto-play-next-btn.active:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
 }
 
 .video-placeholder,
@@ -614,13 +653,14 @@ body {
 
 /* Fix back button color in fullscreen mode */
 .player-page.fullscreen-mode .player-header.fullscreen-overlay .back-button {
-    color: white;
+    color: rgba(255, 255, 255, 0.9);
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.2);
 }
 
 .player-page.fullscreen-mode .player-header.fullscreen-overlay .back-button:hover {
     background: rgba(255, 255, 255, 0.2);
+    color: white;
 }
 
 /* Fix quality selector color in fullscreen mode */
@@ -630,6 +670,28 @@ body {
 
 .player-page.fullscreen-mode .player-header.fullscreen-overlay .quality-selector label {
     color: rgba(255, 255, 255, 0.9);
+}
+
+/* Fix auto-play-next button in fullscreen mode */
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .auto-play-next-btn {
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .auto-play-next-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .auto-play-next-btn.active {
+    color: white;
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .auto-play-next-btn.active:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
 }
 
 /* Fix Select component colors in fullscreen mode */

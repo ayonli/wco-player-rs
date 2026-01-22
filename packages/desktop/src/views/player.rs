@@ -49,6 +49,23 @@ pub fn Player(
     let mut current_quality = use_signal(|| "sd".to_string()); // Default to SD
     #[allow(unused_mut)]
     let mut playback_position = use_signal(|| Option::<f64>::None);
+    #[allow(unused_mut)]
+    let mut auto_play_next = use_signal(|| false);
+
+    // Load auto_play_next setting from localStorage on mount
+    let mut auto_play_next_init = auto_play_next;
+    use_effect(move || {
+        spawn(async move {
+            let default_value = serde_json::json!(false);
+            let setting_result: Result<serde_json::Value, _> =
+                video_js::getSetting("auto_play_next", default_value).await;
+            if let Ok(value) = setting_result {
+                if let Some(auto_play) = value.as_bool() {
+                    auto_play_next_init.set(auto_play);
+                }
+            }
+        });
+    });
 
     // Get server config from context
     let server_config = use_context::<ServerConfig>();
@@ -68,6 +85,21 @@ pub fn Player(
         spawn(async move {
             let _ = video_js::initVideoPlayerControls().await;
         });
+    });
+
+    // Sync auto-play-next state to JavaScript when it changes or when video info changes
+    let auto_play_next_sync = auto_play_next;
+    let video_info_sync = video_info;
+    use_effect(move || {
+        let enabled = auto_play_next_sync();
+        let has_video = video_info_sync().is_some();
+        if has_video {
+            spawn(async move {
+                // Wait a bit for video element to be created
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                let _ = video_js::setAutoPlayNext(enabled).await;
+            });
+        }
     });
 
     // Update fullscreen state when window fullscreen changes (for macOS native button)
@@ -214,6 +246,13 @@ pub fn Player(
             video_error_clone.set(None);
             video_loading_clone.set(true);
 
+            // Scroll to the selected episode after a short delay to ensure DOM is updated
+            let episode_url_for_scroll = episode_url.clone();
+            spawn(async move {
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                let _ = video_js::scrollToEpisode(&episode_url_for_scroll).await;
+            });
+
             // Save series and episode to localStorage
             let series_title = series_for_save.title.clone();
             let series_url = series_for_save.url.clone();
@@ -306,13 +345,23 @@ pub fn Player(
             div {
                 class: "player-header fullscreen-overlay",
                 id: "player-header",
-                div { class: "breadcrumb",
-                    span { "Home" }
-                    span { " / " }
-                    span { class: "current", "{series.title}" }
-                    if let Some(ref ep) = selected_episode() {
+                div { class: "header-left",
+                    button {
+                        class: "back-button",
+                        title: "Back to Search",
+                        onclick: move |_| {
+                            router.push(crate::Route::Search {});
+                        },
+                        "←"
+                    }
+                    div { class: "breadcrumb",
+                        span { "Home" }
                         span { " / " }
-                        span { class: "current", "{ep.title}" }
+                        span { class: "current", "{series.title}" }
+                        if let Some(ref ep) = selected_episode() {
+                            span { " / " }
+                            span { class: "current", "{ep.title}" }
+                        }
                     }
                 }
                 div { class: "header-controls",
@@ -354,11 +403,18 @@ pub fn Player(
                         }
                     }
                     button {
-                        class: "back-button",
+                        class: if auto_play_next() { "auto-play-next-btn active" } else { "auto-play-next-btn" },
+                        title: "自动播放下一集",
                         onclick: move |_| {
-                            router.push(crate::Route::Search {});
+                            let new_value = !auto_play_next();
+                            auto_play_next.set(new_value);
+                            // Save to localStorage
+                            let value_json = serde_json::json!(new_value);
+                            spawn(async move {
+                                let _: Result<(), _> = video_js::updateSetting("auto_play_next", value_json).await;
+                            });
                         },
-                        "← Back to Search"
+                        "⏭"
                     }
                 }
             }

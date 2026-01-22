@@ -18,6 +18,8 @@ use_js!("../web/assets/video_player.ts", "assets/video_player.js"::{
     getCurrentPlaybackPosition,
     scrollToEpisode,
     restorePlaybackEpisode,
+    setAutoPlayNext,
+    playNextEpisode,
 });
 
 // Import state management functions
@@ -25,4 +27,8 @@ use_js!("assets/state_manager.js"::{
     loadAppState,
     updateRoute,
     updateSeriesAndEpisode,
+    loadSettings,
+    saveSettings,
+    updateSetting,
+    getSetting,
 });

@@ -2,7 +2,25 @@
 import { loadAppState, updatePlaybackPosition } from "./state_manager"
 
 /**
+ * Check if an element is fully visible within its scrollable container
+ */
+function isElementVisible(
+    element: HTMLElement,
+    container: HTMLElement,
+): boolean {
+    const containerRect = container.getBoundingClientRect()
+    const elementRect = element.getBoundingClientRect()
+
+    // Check if element is within container's visible area
+    return (
+        elementRect.top >= containerRect.top &&
+        elementRect.bottom <= containerRect.bottom
+    )
+}
+
+/**
  * Scroll to a specific episode in the episode list
+ * Only scrolls if the episode is not fully visible in the viewport
  * @param episodeUrl - URL of the episode to scroll to
  */
 export function scrollToEpisode(episodeUrl: string): void {
@@ -24,6 +42,11 @@ export function scrollToEpisode(episodeUrl: string): void {
         return
     }
 
+    // Check if element is already fully visible
+    if (isElementVisible(episodeItem, episodeListContent)) {
+        return
+    }
+
     // Calculate scroll position to center the episode item
     const containerRect = episodeListContent.getBoundingClientRect()
     const itemRect = episodeItem.getBoundingClientRect()
@@ -40,6 +63,30 @@ export function scrollToEpisode(episodeUrl: string): void {
         top: Math.max(0, targetScrollTop),
         behavior: "smooth",
     })
+}
+
+/**
+ * Scroll to the currently selected episode
+ * This function automatically finds the selected episode and scrolls to it
+ */
+export function scrollToSelectedEpisode(): void {
+    // Find the selected episode item
+    const selectedEpisode = document.querySelector(
+        ".episode-item.selected",
+    ) as HTMLElement | null
+
+    if (!selectedEpisode) {
+        return
+    }
+
+    // Get the episode URL from data attribute
+    const episodeUrl = selectedEpisode.getAttribute("data-episode-url")
+    if (!episodeUrl) {
+        return
+    }
+
+    // Scroll to the selected episode
+    scrollToEpisode(episodeUrl)
 }
 
 /**
@@ -96,6 +143,65 @@ export function restorePlaybackEpisode(episodeUrl?: string): void {
         setTimeout(() => {
             observer.disconnect()
         }, 5000) // Stop observing after 5 seconds
+    }
+}
+
+/**
+ * Setup automatic scrolling when episode selection changes
+ * This observes changes to the selected episode and automatically scrolls to it
+ */
+export function setupAutoScrollOnSelection(): void {
+    // Use MutationObserver to watch for changes to the selected class
+    const observer = new MutationObserver(() => {
+        // Check if there's a selected episode
+        const selectedEpisode = document.querySelector(
+            ".episode-item.selected",
+        ) as HTMLElement | null
+
+        if (selectedEpisode) {
+            // Small delay to ensure DOM is fully updated
+            setTimeout(() => {
+                scrollToSelectedEpisode()
+            }, 50)
+        }
+    })
+
+    // Observe the episode list container for class changes
+    const episodeListContent = document.querySelector(
+        ".episode-list-content",
+    ) as HTMLElement | null
+
+    if (episodeListContent) {
+        observer.observe(episodeListContent, {
+            attributes: true,
+            attributeFilter: ["class"],
+            childList: true,
+            subtree: true,
+        })
+    } else {
+        // If container doesn't exist yet, wait for it
+        const waitObserver = new MutationObserver(() => {
+            const container = document.querySelector(
+                ".episode-list-content",
+            ) as HTMLElement | null
+            if (container) {
+                waitObserver.disconnect()
+                observer.observe(container, {
+                    attributes: true,
+                    attributeFilter: ["class"],
+                    childList: true,
+                    subtree: true,
+                })
+            }
+        })
+        waitObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+        })
+        // Stop waiting after 10 seconds
+        setTimeout(() => {
+            waitObserver.disconnect()
+        }, 10000)
     }
 }
 
@@ -375,6 +481,9 @@ export function initVideoPlayerControls(): void {
     } else {
         setupFullscreenHover()
     }
+
+    // Setup automatic scrolling when episode selection changes
+    setupAutoScrollOnSelection()
 
     // Setup global observer to automatically track video elements when they're added to DOM
     const videoObserver = new MutationObserver(() => {
@@ -702,11 +811,52 @@ function setupPlaybackTrackingForVideo(
         playbackEnded = true
         // Clear position in localStorage
         updatePlaybackPosition(null)
+        // Check if auto-play next is enabled
+        const autoPlayNext = video.dataset.autoPlayNext === "true"
+        if (autoPlayNext) {
+            playNextEpisode()
+        }
     }, { once: true })
 
     // Note: We don't clear interval on loadstart anymore
     // because loadstart fires when video src changes, which would stop tracking
     // The interval will be cleared when setupPlaybackTracking is called again for a new video
+}
+
+/**
+ * Play the next episode automatically
+ */
+export function playNextEpisode(): void {
+    // Find the currently selected episode
+    const selectedEpisode = document.querySelector(".episode-item.selected") as HTMLElement | null
+    if (!selectedEpisode) {
+        return
+    }
+    // Find the next episode (sibling element)
+    const nextEpisode = selectedEpisode.nextElementSibling as HTMLElement | null
+    if (!nextEpisode || !nextEpisode.classList.contains("episode-item")) {
+        // No next episode, do nothing
+        return
+    }
+    // Click the next episode to play it
+    nextEpisode.click()
+
+    // After clicking, wait a bit for the selection to update, then scroll
+    // The auto-scroll observer will handle this, but we can also trigger it directly
+    setTimeout(() => {
+        scrollToSelectedEpisode()
+    }, 100)
+}
+
+/**
+ * Set auto-play next episode state
+ * @param enabled - Whether auto-play next is enabled
+ */
+export function setAutoPlayNext(enabled: boolean): void {
+    const video = document.querySelector("video.video-element") as HTMLVideoElement | null
+    if (video) {
+        video.dataset.autoPlayNext = enabled ? "true" : "false"
+    }
 }
 
 /**

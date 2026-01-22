@@ -111,3 +111,63 @@ export function restoreRouteFromState(): void {
     // This function is kept for backwards compatibility but does nothing
     // Route restoration is now handled in Rust in the Search component
 }
+
+/**
+ * Settings interface for application preferences
+ */
+export interface Settings {
+    auto_play_next?: boolean
+    // Future settings can be added here
+}
+
+const SETTINGS_KEY = "wco-player-settings"
+
+/**
+ * Load settings from localStorage
+ */
+export function loadSettings(): Settings {
+    try {
+        const json = localStorage.getItem(SETTINGS_KEY)
+        if (!json) {
+            return {}
+        }
+        return JSON.parse(json) as Settings
+    } catch {
+        return {}
+    }
+}
+
+/**
+ * Save settings to localStorage
+ */
+export function saveSettings(settings: Settings): void {
+    try {
+        const json = JSON.stringify(settings)
+        localStorage.setItem(SETTINGS_KEY, json)
+    } catch {
+        // Silently fail
+    }
+}
+
+/**
+ * Update a specific setting
+ */
+export function updateSetting<K extends keyof Settings>(
+    key: K,
+    value: Settings[K],
+): void {
+    const settings = loadSettings()
+    settings[key] = value
+    saveSettings(settings)
+}
+
+/**
+ * Get a specific setting value
+ */
+export function getSetting<K extends keyof Settings>(
+    key: K,
+    defaultValue: Settings[K],
+): Settings[K] {
+    const settings = loadSettings()
+    return settings[key] ?? defaultValue
+}
