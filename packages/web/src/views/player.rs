@@ -144,9 +144,9 @@ fn PlayerRoute(
                         is_fullscreen_inner.set(current_state);
                         last_state = current_state;
                     }
-                    // Yield to allow other tasks to run
-                    use std::future::ready;
-                    ready(()).await;
+                    // Sleep to avoid busy loop
+                    use std::time::Duration;
+                    tokio::time::sleep(Duration::from_millis(200)).await;
                 }
             });
         });
