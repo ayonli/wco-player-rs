@@ -1,5 +1,5 @@
 // Video player fullscreen and overlay control logic
-import { loadAppState, updatePlaybackPosition } from "./state_manager"
+import { loadAppState, setPlaybackPosition } from "./state_manager"
 
 /**
  * Check if an element is fully visible within its scrollable container
@@ -648,11 +648,11 @@ function setupPlaybackTrackingForVideo(
             // Check if the saved episode matches the current video
             // We can't directly check the video URL, but we can check if episode URL matches
             // For now, we'll restore if episode exists in state
-            // The episode URL should match what's in the DOM or be set by updateSeriesAndEpisode
+            // The episode URL should match what's in the DOM or be set by setSeriesAndEpisode
             positionToRestore = state.playback_position
         } else if (state && state.playback_position && !state.episode) {
             // If there's a position but no episode, clear it (stale data)
-            updatePlaybackPosition(null)
+            setPlaybackPosition(null)
         }
     }
 
@@ -791,13 +791,13 @@ function setupPlaybackTrackingForVideo(
             if (Math.abs(currentTime - lastSavedPosition) > 1) {
                 lastSavedPosition = currentTime
                 // Save to localStorage
-                updatePlaybackPosition(currentTime)
+                setPlaybackPosition(currentTime)
             }
         } else if (isEnded) {
             currentPlaybackPosition = null
             playbackEnded = true
             // Clear position when video ends
-            updatePlaybackPosition(null)
+            setPlaybackPosition(null)
         }
     }, 2000)
 
@@ -810,7 +810,7 @@ function setupPlaybackTrackingForVideo(
         currentPlaybackPosition = null
         playbackEnded = true
         // Clear position in localStorage
-        updatePlaybackPosition(null)
+        setPlaybackPosition(null)
         // Check if auto-play next is enabled
         const autoPlayNext = video.dataset.autoPlayNext === "true"
         if (autoPlayNext) {

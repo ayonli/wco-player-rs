@@ -56,9 +56,9 @@ export function clearAppState(): void {
 }
 
 /**
- * Update only the playback position in saved state
+ * Set the playback position in saved state
  */
-export function updatePlaybackPosition(position: number | null): void {
+export function setPlaybackPosition(position: number | null): void {
     // Always ensure we have a state object, even if it doesn't exist yet
     const state = loadAppState() || { route: location.pathname || "/" }
     if (position !== null && position > 0) {
@@ -70,19 +70,19 @@ export function updatePlaybackPosition(position: number | null): void {
 }
 
 /**
- * Update route in saved state
+ * Set the last route in saved state
  */
-export function updateRoute(route: string): void {
+export function setLastRoute(route: string): void {
     const state = loadAppState() || { route: "/" }
     state.route = route
     saveAppState(state)
 }
 
 /**
- * Update series and episode in saved state
+ * Set series and episode in saved state
  * This also clears playback position when series/episode changes
  */
-export function updateSeriesAndEpisode(
+export function setSeriesAndEpisode(
     series: AppState["series"],
     episode: AppState["episode"],
 ): void {
@@ -150,9 +150,9 @@ export function saveSettings(settings: Settings): void {
 }
 
 /**
- * Update a specific setting
+ * Set a specific setting value
  */
-export function updateSetting<K extends keyof Settings>(
+export function setSetting<K extends keyof Settings>(
     key: K,
     value: Settings[K],
 ): void {

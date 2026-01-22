@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
+use views::Search;
 use wco::Series;
 
 mod api_client;
@@ -70,6 +71,8 @@ pub struct EpisodeData {
 #[rustfmt::skip]
 pub enum Route {
     #[route("/")]
+    Home {},
+    #[route("/search")]
     Search {},
     #[route("/player")]
     Player {},
@@ -83,8 +86,6 @@ fn App() -> Element {
     // Provide current series context
     use_context_provider(|| current_series);
 
-    // Route restoration is handled in Search component after Router is ready
-
     rsx! {
         // Load styles (theme first for CSS variables, then player.css to override body styles)
         document::Link { rel: "stylesheet", href: DX_COMPONENTS_THEME }
@@ -94,13 +95,10 @@ fn App() -> Element {
     }
 }
 
-// Route components - these are automatically matched by the router
-// based on the Route enum variant names
-
-// Search route component (matches Route::Search)
+// Home route component (default route, handles route restoration)
 #[component]
-fn Search() -> Element {
-    // Restore route on first render if we're on the wrong route
+fn Home() -> Element {
+    // Route restoration on app startup
     let router = router();
     let mut current_series = use_context::<Signal<Option<Series>>>();
     let mut initialized = use_signal(|| false);
@@ -110,44 +108,58 @@ fn Search() -> Element {
             initialized.set(true);
             spawn(async move {
                 // Wait a bit for everything to initialize
-                tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
                 // Load state from localStorage
-                // loadAppState returns Option<AppState> (null in JS becomes None)
-                // use_js! wraps it in Result, so we get Result<Option<AppState>, _>
                 let result = crate::video_js::loadAppState::<Option<AppState>>().await;
                 if let Ok(Some(state)) = result {
-                    if state.route == "/player" {
-                        // Restore series if available
-                        if let Some(series_data) = state.series {
-                            // Reconstruct Series from saved data
-                            let series = Series {
-                                title: series_data.title.clone(),
-                                url: series_data.url.clone(),
-                                thumbnail: series_data.thumbnail.clone(),
-                            };
-                            current_series.set(Some(series));
-                            router.push(Route::Player {});
+                    // Match the saved route path and construct the corresponding Route enum
+                    match state.route.as_str() {
+                        "/player" => {
+                            // Restore series if available
+                            if let Some(series_data) = state.series {
+                                // Reconstruct Series from saved data
+                                let series = Series {
+                                    title: series_data.title.clone(),
+                                    url: series_data.url.clone(),
+                                    thumbnail: series_data.thumbnail.clone(),
+                                };
+                                current_series.set(Some(series));
+                                router.replace(Route::Player {});
+                            } else {
+                                // No series data, fallback to Search route
+                                router.replace(Route::Search {});
+                            }
+                        }
+                        "/search" => {
+                            // Saved route is Search, navigate to it
+                            router.replace(Route::Search {});
+                        }
+                        "/" => {
+                            // Saved route is Home (default), go to Search
+                            router.replace(Route::Search {});
+                        }
+                        _ => {
+                            // Invalid route path, fallback to Search route
+                            router.replace(Route::Search {});
                         }
                     }
+                } else {
+                    // No saved state, go to Search route
+                    router.replace(Route::Search {});
                 }
             });
         }
     });
 
-    rsx! {
-        views::Search {}
-    }
+    // Return empty content while determining route
+    rsx! {}
 }
 
-// Player route component (matches Route::Player)
+// Player route component - needs to get series from context
 #[component]
 fn Player() -> Element {
-    // Note: context should always be available since App provides it
     let current_series = use_context::<Signal<Option<Series>>>();
-
-    // Don't clear state when entering - let views::Player handle restoration
-    // State will be saved by views::Player when episode/position changes
 
     match current_series() {
         Some(series) => rsx! {

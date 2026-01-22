@@ -25,10 +25,10 @@ use_js!("../web/assets/video_player.ts", "assets/video_player.js"::{
 // Import state management functions
 use_js!("assets/state_manager.js"::{
     loadAppState,
-    updateRoute,
-    updateSeriesAndEpisode,
+    setLastRoute,
+    setSeriesAndEpisode,
     loadSettings,
     saveSettings,
-    updateSetting,
+    setSetting,
     getSetting,
 });

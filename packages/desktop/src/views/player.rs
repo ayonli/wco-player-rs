@@ -260,7 +260,7 @@ pub fn Player(
             let episode_url_for_save = episode_clone.url.clone();
             let episode_url_for_info = episode_url.clone();
             spawn(async move {
-                use video_js::updateSeriesAndEpisode;
+                use video_js::setSeriesAndEpisode;
                 let series_obj = serde_json::json!({
                     "title": series_title,
                     "url": series_url,
@@ -269,7 +269,7 @@ pub fn Player(
                     "title": episode_title,
                     "url": episode_url_for_save,
                 });
-                let _: Result<(), _> = updateSeriesAndEpisode(series_obj, episode_obj).await;
+                let _: Result<(), _> = setSeriesAndEpisode(series_obj, episode_obj).await;
             });
 
             spawn(async move {
@@ -350,6 +350,11 @@ pub fn Player(
                         class: "back-button",
                         title: "Back to Search",
                         onclick: move |_| {
+                            // Update route in localStorage before navigating
+                            spawn(async move {
+                                use crate::video_js::setLastRoute;
+                                let _: Result<(), _> = setLastRoute("/search".to_string()).await;
+                            });
                             router.push(crate::Route::Search {});
                         },
                         "←"
@@ -411,7 +416,7 @@ pub fn Player(
                             // Save to localStorage
                             let value_json = serde_json::json!(new_value);
                             spawn(async move {
-                                let _: Result<(), _> = video_js::updateSetting("auto_play_next", value_json).await;
+                                let _: Result<(), _> = video_js::setSetting("auto_play_next", value_json).await;
                             });
                         },
                         "⏭"

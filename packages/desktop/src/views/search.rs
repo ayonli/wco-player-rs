@@ -74,8 +74,8 @@ pub fn Search() -> Element {
 
                             // Save route to localStorage
                             spawn(async move {
-                                use crate::video_js::updateRoute;
-                                let _: Result<(), _> = updateRoute("/player".to_string()).await;
+                                use crate::video_js::setLastRoute;
+                                let _: Result<(), _> = setLastRoute("/player".to_string()).await;
                             });
 
                             router.push(crate::Route::Player {});
