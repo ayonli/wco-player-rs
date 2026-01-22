@@ -1,4 +1,6 @@
 //! Video player JavaScript bindings for desktop platform
+//! This module only contains use_js! macro declarations.
+//! The generated functions are used directly in components.
 
 use dioxus::prelude::*;
 use dioxus_use_js::use_js;
@@ -12,9 +14,15 @@ use_js!("../web/assets/video_player.ts", "assets/video_player.js"::{
     checkWindowFullscreen,
     setupFullscreenHover,
     isPlayerPageFullscreen,
+    setupPlaybackTracking,
+    getCurrentPlaybackPosition,
+    scrollToEpisode,
+    restorePlaybackEpisode,
 });
 
-/// Initialize video player controls (desktop platform)
-pub async fn init_video_player_controls() -> Result<(), String> {
-    initVideoPlayerControls().await.map_err(|e| e.to_string())
-}
+// Import state management functions
+use_js!("assets/state_manager.js"::{
+    loadAppState,
+    updateRoute,
+    updateSeriesAndEpisode,
+});

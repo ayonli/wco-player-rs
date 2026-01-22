@@ -15,12 +15,13 @@ pub fn EpisodeItem(
     on_select: EventHandler<Episode>,
 ) -> Element {
     let episode_clone = episode.clone();
-    
+
     rsx! {
         div {
             class: if selected { "episode-item selected" } else { "episode-item" },
+            "data-episode-url": "{episode.url}",
             onclick: move |_| on_select.call(episode_clone.clone()),
-            
+
             span {
                 class: "episode-title",
                 "{episode.title}"
@@ -45,7 +46,7 @@ pub fn EpisodeList(
     rsx! {
         div {
             class: "episode-list",
-            
+
             div {
                 class: "episode-list-header",
                 h2 { "Episodes" }
@@ -58,10 +59,10 @@ pub fn EpisodeList(
                     }
                 }
             }
-            
+
             div {
                 class: "episode-list-content",
-                
+
                 if loading {
                     div {
                         class: "episode-loading",

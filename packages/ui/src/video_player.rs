@@ -31,13 +31,12 @@ pub fn VideoPlayer(
     /// Whether the app is in fullscreen mode
     #[props(default = false)]
     is_fullscreen: bool,
+    /// Initial playback position to restore (in seconds)
+    #[props(default = None)]
+    initial_playback_position: Option<f64>,
 ) -> Element {
     // Use current_quality as part of the key to force video reload when quality changes
-    let video_key = format!(
-        "{}-{}",
-        video_src.as_ref().map(|s| s.as_str()).unwrap_or(""),
-        current_quality
-    );
+    let video_key = format!("{}-{}", video_src.as_deref().unwrap_or(""), current_quality);
     let video_id = format!("video-player-{}", video_key);
 
     rsx! {

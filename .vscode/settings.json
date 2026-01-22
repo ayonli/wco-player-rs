@@ -3,6 +3,7 @@
     "editor.formatOnSave": true,
     "deno-tools.enable": true,
     "cSpell.words": [
+        "autoplay",
         "fullhd",
         "futurama",
         "onclick",

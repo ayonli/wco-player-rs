@@ -19,9 +19,7 @@ pub fn start_server_sync() -> u16 {
     let (tx, rx) = oneshot::channel();
 
     std::thread::spawn(move || {
-        eprintln!("🔄 [Server Thread] Starting...");
         let rt = tokio::runtime::Runtime::new().unwrap();
-        eprintln!("✅ [Server Thread] Runtime created");
 
         rt.block_on(async move {
             // Build router with all routes
@@ -46,20 +44,11 @@ pub fn start_server_sync() -> u16 {
             let addr = listener.local_addr().unwrap();
             let port = addr.port();
 
-            eprintln!(
-                "✅ [Server Thread] Server bound to http://127.0.0.1:{}",
-                port
-            );
-
             // Send port back to main thread
             tx.send(port).unwrap();
 
-            match axum::serve(listener, app).await {
-                Ok(_) => eprintln!("✅ [Server Thread] Server exited normally"),
-                Err(e) => eprintln!("❌ [Server Thread] Server error: {}", e),
-            }
+            let _ = axum::serve(listener, app).await;
         });
-        eprintln!("🛑 [Server Thread] Thread finished");
     });
 
     // Wait for server to be ready

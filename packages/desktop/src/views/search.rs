@@ -7,10 +7,7 @@ use wco::Series;
 
 /// Search page component
 #[component]
-pub fn Search(
-    /// Callback when a series is selected
-    on_select: EventHandler<Series>,
-) -> Element {
+pub fn Search() -> Element {
     let mut search_results = use_signal(Vec::<Series>::new);
     let mut is_searching = use_signal(|| false);
     let mut search_error = use_signal(|| Option::<String>::None);
@@ -18,6 +15,10 @@ pub fn Search(
 
     // Get server config from context
     let server_config = use_context::<ServerConfig>();
+
+    // Get router and current series context
+    let router = router();
+    let mut current_series = use_context::<Signal<Option<Series>>>();
 
     let handle_search = move |query: String| {
         spawn(async move {
@@ -67,7 +68,18 @@ pub fn Search(
                     }
                     SeriesGrid {
                         series_list: search_results(),
-                        on_select: move |s| on_select.call(s),
+                        on_select: move |s: Series| {
+                            // Set series in context and navigate to player
+                            current_series.set(Some(s.clone()));
+
+                            // Save route to localStorage
+                            spawn(async move {
+                                use crate::video_js::updateRoute;
+                                let _: Result<(), _> = updateRoute("/player".to_string()).await;
+                            });
+
+                            router.push(crate::Route::Player {});
+                        },
                     }
                 } else {
                     div { class: "no-results",

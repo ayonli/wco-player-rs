@@ -1,6 +1,6 @@
 //! Player page - displays episodes and video player
 
-use crate::{api_client, ServerConfig};
+use crate::{api_client, video_js, ServerConfig};
 use dioxus::prelude::*;
 use ui::{EpisodeList, Select, SelectList, SelectOption, SelectTrigger, SelectValue, VideoPlayer};
 use wco::{Episode, Series, VideoInfo};
@@ -32,19 +32,29 @@ fn build_video_url(video_url: &str, port: u16) -> String {
 pub fn Player(
     /// The selected series to play
     series: Series,
-    /// Callback to go back to search
-    on_back: EventHandler<()>,
 ) -> Element {
+    #[allow(unused_mut)]
     let mut episodes = use_signal(Vec::<Episode>::new);
+    #[allow(unused_mut)]
     let mut episodes_loading = use_signal(|| true);
+    #[allow(unused_mut)]
     let mut selected_episode = use_signal(|| Option::<Episode>::None);
+    #[allow(unused_mut)]
     let mut video_info = use_signal(|| Option::<VideoInfo>::None);
+    #[allow(unused_mut)]
     let mut video_loading = use_signal(|| false);
+    #[allow(unused_mut)]
     let mut video_error = use_signal(|| Option::<String>::None);
+    #[allow(unused_mut)]
     let mut current_quality = use_signal(|| "sd".to_string()); // Default to SD
+    #[allow(unused_mut)]
+    let mut playback_position = use_signal(|| Option::<f64>::None);
 
     // Get server config from context
     let server_config = use_context::<ServerConfig>();
+
+    // Get router for navigation
+    let router = router();
 
     // Get window service for fullscreen control
     let window_service = dioxus::desktop::use_window();
@@ -56,15 +66,7 @@ pub fn Player(
     // Initialize video player controls globally (only once)
     use_effect(move || {
         spawn(async move {
-            eprintln!("🎬 Initializing video player controls globally...");
-            match crate::video_js::init_video_player_controls().await {
-                Ok(_) => {
-                    eprintln!("✅ Video player controls initialized (Rust side)");
-                }
-                Err(e) => {
-                    eprintln!("❌ Failed to initialize video player controls: {}", e);
-                }
-            }
+            let _ = video_js::initVideoPlayerControls().await;
         });
     });
 
@@ -75,7 +77,6 @@ pub fn Player(
     use_effect(move || {
         let current_fullscreen = window_service_clone.fullscreen().is_some();
         is_fullscreen.set(current_fullscreen);
-        eprintln!("🎬 Initial fullscreen state: {}", current_fullscreen);
     });
 
     // Set up periodic check for fullscreen state changes
@@ -91,10 +92,6 @@ pub fn Player(
                 tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
                 let current_state = window_service_inner.fullscreen().is_some();
                 if current_state != last_state {
-                    eprintln!(
-                        "🔄 Fullscreen state changed: {} -> {}",
-                        last_state, current_state
-                    );
                     is_fullscreen_inner.set(current_state);
                     last_state = current_state;
                 }
@@ -102,54 +99,162 @@ pub fn Player(
         });
     });
 
-    // Load episodes when series changes
-    use_effect(move || {
-        let series_url: String = series.url.clone();
-        spawn(async move {
-            episodes_loading.set(true);
+    // State management is handled in JavaScript
+    // JavaScript will restore episode and position automatically via setupPlaybackTracking
 
-            match api_client::list_episodes(&series_url, server_config.port).await {
+    // Load episodes when series changes
+    // After loading, restore saved episode and position from localStorage
+    let series_for_episodes = series.clone();
+    let mut selected_episode_restore = selected_episode;
+    let mut playback_position_restore = playback_position;
+    let mut video_info_restore = video_info;
+    let mut video_loading_restore = video_loading;
+    let mut video_error_restore = video_error;
+    let mut current_quality_restore = current_quality;
+    let mut episodes_restore = episodes;
+    let mut episodes_loading_restore = episodes_loading;
+
+    use_effect(move || {
+        let series_url: String = series_for_episodes.url.clone();
+        let server_config_clone = server_config;
+        spawn(async move {
+            episodes_loading_restore.set(true);
+
+            match api_client::list_episodes(&series_url, server_config_clone.port).await {
                 Ok(eps) => {
-                    episodes.set(eps);
+                    episodes_restore.set(eps.clone());
+
+                    // After episodes are loaded, try to restore saved episode
+                    let state_result = video_js::loadAppState::<Option<crate::AppState>>().await;
+                    if let Ok(Some(state)) = state_result {
+                        if let Some(saved_episode) = state.episode {
+                            // Find matching episode in the loaded list
+                            if let Some(episode_to_restore) =
+                                eps.iter().find(|ep| ep.url == saved_episode.url)
+                            {
+                                // Set selected episode
+                                selected_episode_restore.set(Some(episode_to_restore.clone()));
+
+                                // Restore playback position if available
+                                if let Some(saved_position) = state.playback_position {
+                                    playback_position_restore.set(Some(saved_position));
+                                }
+
+                                // Scroll to the restored episode in the list
+                                let episode_url_for_scroll = episode_to_restore.url.clone();
+                                spawn(async move {
+                                    // Wait a bit for DOM to update with the selected episode
+                                    tokio::time::sleep(tokio::time::Duration::from_millis(100))
+                                        .await;
+                                    let _ =
+                                        video_js::restorePlaybackEpisode(&episode_url_for_scroll)
+                                            .await;
+                                });
+
+                                // Load video info for the restored episode
+                                video_loading_restore.set(true);
+                                video_error_restore.set(None);
+
+                                let episode_url_for_info = episode_to_restore.url.clone();
+                                let server_config_for_info = server_config_clone;
+                                spawn(async move {
+                                    match api_client::get_video_info(
+                                        &episode_url_for_info,
+                                        server_config_for_info.port,
+                                    )
+                                    .await
+                                    {
+                                        Ok(info) => {
+                                            // Auto-select best available quality
+                                            let best_quality = if info.full_hd_url.is_some() {
+                                                "fhd"
+                                            } else if info.hd_url.is_some() {
+                                                "hd"
+                                            } else {
+                                                "sd"
+                                            };
+                                            current_quality_restore.set(best_quality.to_string());
+                                            video_info_restore.set(Some(info));
+                                        }
+                                        Err(e) => {
+                                            video_error_restore.set(Some(e.to_string()));
+                                        }
+                                    }
+                                    video_loading_restore.set(false);
+                                });
+                            }
+                        }
+                    }
                 }
-                Err(_e) => {
-                    episodes.set(vec![]);
+                Err(_) => {
+                    episodes_restore.set(vec![]);
                 }
             }
 
-            episodes_loading.set(false);
+            episodes_loading_restore.set(false);
         });
     });
 
     // Handle episode selection
-    let handle_episode_select = move |episode: Episode| {
-        let episode_url = episode.url.clone();
-        selected_episode.set(Some(episode));
-        video_info.set(None);
-        video_error.set(None);
-        video_loading.set(true);
+    let series_for_save = series.clone();
+    let handle_episode_select = {
+        let mut selected_episode_clone = selected_episode;
+        let mut playback_position_clone = playback_position;
+        let mut video_info_clone = video_info;
+        let mut video_loading_clone = video_loading;
+        let mut video_error_clone = video_error;
+        let mut current_quality_clone = current_quality;
+        move |episode: Episode| {
+            let episode_url = episode.url.clone();
+            let episode_clone = episode.clone();
+            selected_episode_clone.set(Some(episode_clone.clone()));
+            // Clear playback position when selecting a new episode (unless restoring)
+            playback_position_clone.set(None);
+            video_info_clone.set(None);
+            video_error_clone.set(None);
+            video_loading_clone.set(true);
 
-        spawn(async move {
-            match api_client::get_video_info(&episode_url, server_config.port).await {
-                Ok(info) => {
-                    // Auto-select best available quality BEFORE setting video_info
-                    let best_quality = if info.full_hd_url.is_some() {
-                        "fhd"
-                    } else if info.hd_url.is_some() {
-                        "hd"
-                    } else {
-                        "sd"
-                    };
+            // Save series and episode to localStorage
+            let series_title = series_for_save.title.clone();
+            let series_url = series_for_save.url.clone();
+            let episode_title = episode_clone.title.clone();
+            let episode_url_for_save = episode_clone.url.clone();
+            let episode_url_for_info = episode_url.clone();
+            spawn(async move {
+                use video_js::updateSeriesAndEpisode;
+                let series_obj = serde_json::json!({
+                    "title": series_title,
+                    "url": series_url,
+                });
+                let episode_obj = serde_json::json!({
+                    "title": episode_title,
+                    "url": episode_url_for_save,
+                });
+                let _: Result<(), _> = updateSeriesAndEpisode(series_obj, episode_obj).await;
+            });
 
-                    current_quality.set(best_quality.to_string());
-                    video_info.set(Some(info));
+            spawn(async move {
+                match api_client::get_video_info(&episode_url_for_info, server_config.port).await {
+                    Ok(info) => {
+                        // Auto-select best available quality BEFORE setting video_info
+                        let best_quality = if info.full_hd_url.is_some() {
+                            "fhd"
+                        } else if info.hd_url.is_some() {
+                            "hd"
+                        } else {
+                            "sd"
+                        };
+
+                        current_quality_clone.set(best_quality.to_string());
+                        video_info_clone.set(Some(info));
+                    }
+                    Err(e) => {
+                        video_error_clone.set(Some(e.to_string()));
+                    }
                 }
-                Err(e) => {
-                    video_error.set(Some(e.to_string()));
-                }
-            }
-            video_loading.set(false);
-        });
+                video_loading_clone.set(false);
+            });
+        }
     };
 
     // Handle quality change
@@ -164,12 +269,20 @@ pub fn Player(
 
     // Build proxy URL for the video
     let video_src = video_info.read().as_ref().map(|info| {
-        let video_url = get_quality_url(info, &current_quality());
+        let quality = current_quality();
+        let video_url = get_quality_url(info, &quality);
         build_video_url(&video_url, server_config.port)
     });
 
     let selected_url = selected_episode.read().as_ref().map(|e| e.url.clone());
     let episode_title = selected_episode.read().as_ref().map(|e| e.title.clone());
+
+    // Playback tracking is automatically set up by initVideoPlayerControls()
+    // which uses MutationObserver to detect when video elements are added to DOM
+    // No need to manually call setupPlaybackTracking here
+
+    // State saving is handled entirely in JavaScript
+    // No periodic save task needed in Rust
 
     // Check available qualities
     let has_hd = video_info
@@ -183,16 +296,10 @@ pub fn Player(
         .map(|i| i.full_hd_url.is_some())
         .unwrap_or(false);
 
-    // Determine default quality - use SD if current_quality is empty
-    let default_quality = if current_quality().is_empty() {
-        "sd".to_string()
-    } else {
-        current_quality()
-    };
-
+    let is_fullscreen_value = is_fullscreen();
     rsx! {
         div {
-            class: if is_fullscreen() { "player-page fullscreen-mode" } else { "player-page" },
+            class: if is_fullscreen_value { "player-page fullscreen-mode" } else { "player-page" },
             id: "player-page",
 
             // Header with breadcrumb, quality selector, and back button (hidden in fullscreen, shown on hover)
@@ -213,7 +320,10 @@ pub fn Player(
                         div { class: "quality-selector",
                             label { "Quality: " }
                             Select::<String> {
-                                value: Some(default_quality.clone()),
+                                value: {
+                                    let q = current_quality();
+                                    Some(if q.is_empty() { "sd".to_string() } else { q })
+                                },
                                 on_value_change: handle_quality_change,
                                 SelectTrigger { SelectValue {} }
                                 SelectList {
@@ -245,7 +355,9 @@ pub fn Player(
                     }
                     button {
                         class: "back-button",
-                        onclick: move |_| on_back.call(()),
+                        onclick: move |_| {
+                            router.push(crate::Route::Search {});
+                        },
                         "← Back to Search"
                     }
                 }
@@ -279,6 +391,7 @@ pub fn Player(
                         current_quality.set(q);
                     },
                     is_fullscreen: is_fullscreen(),
+                    initial_playback_position: playback_position(),
                 }
             }
         }
