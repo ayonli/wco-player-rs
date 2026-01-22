@@ -1,20 +1,34 @@
 //! Video player JavaScript bindings for web platform
+//! This module only contains use_js! macro declarations.
+//! The generated functions are used directly in components.
 
 use dioxus::prelude::*;
 use dioxus_use_js::use_js;
 
 // Import TypeScript functions using dioxus-use-js
 // The macro needs both TS source file (for type parsing) and compiled JS file (for runtime)
-// Build with: tsc assets/video_player.ts --outDir assets
 use_js!("assets/video_player.ts", "assets/video_player.js"::{
     initVideoPlayerControls,
     updateFullscreenStyles,
     checkWindowFullscreen,
     setupFullscreenHover,
     isPlayerPageFullscreen,
+    setupPlaybackTracking,
+    getCurrentPlaybackPosition,
+    scrollToEpisode,
+    restorePlaybackEpisode,
+    setAutoPlayNext,
+    playNextEpisode,
 });
 
-/// Initialize video player controls (web platform)
-pub async fn init_video_player_controls() -> Result<(), String> {
-    initVideoPlayerControls().await.map_err(|e| e.to_string())
-}
+// Import state management functions
+// Note: state_manager.js should be compiled from state_manager.ts
+use_js!("assets/state_manager.ts", "assets/state_manager.js"::{
+    loadAppState,
+    setLastRoute,
+    setSeriesAndEpisode,
+    loadSettings,
+    saveSettings,
+    setSetting,
+    getSetting,
+});

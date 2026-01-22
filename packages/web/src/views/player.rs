@@ -1,8 +1,12 @@
 //! Player page - displays episodes and video player
 
-use crate::{api_client, video_js, ServerConfig};
+use crate::ServerPort;
+use crate::video_js;
 use dioxus::prelude::*;
-use ui::{EpisodeList, Select, SelectList, SelectOption, SelectTrigger, SelectValue, VideoPlayer};
+use ui::{
+    AppState, EpisodeList, Select, SelectList, SelectOption, SelectTrigger, SelectValue,
+    VideoPlayer,
+};
 use wco::{Episode, Series, VideoInfo};
 
 /// Get the video URL for a specific quality
@@ -18,18 +22,25 @@ fn get_quality_url(info: &VideoInfo, quality: &str) -> String {
     }
 }
 
-/// Build a proxy URL for a video
-fn build_video_url(video_url: &str, port: u16) -> String {
-    format!(
-        "http://127.0.0.1:{}/video?url={}",
-        port,
-        urlencoding::encode(video_url)
-    )
+#[allow(unused_variables)]
+fn build_video_url(video_url: &str, server_port: u16) -> String {
+    #[cfg(feature = "desktop")]
+    {
+        format!(
+            "http://127.0.0.1:{}/streaming?url={}",
+            server_port,
+            urlencoding::encode(video_url)
+        )
+    }
+    #[cfg(not(feature = "desktop"))]
+    {
+        format!("/streaming?url={}", urlencoding::encode(video_url))
+    }
 }
 
 /// Player page component
 #[component]
-pub fn Player(
+fn PlayerRoute(
     /// The selected series to play
     series: Series,
 ) -> Element {
@@ -52,6 +63,17 @@ pub fn Player(
     #[allow(unused_mut)]
     let mut auto_play_next = use_signal(|| false);
 
+    let ServerPort(server_port) = {
+        #[cfg(feature = "desktop")]
+        {
+            use_context::<ServerPort>()
+        }
+        #[cfg(not(feature = "desktop"))]
+        {
+            ServerPort(0)
+        }
+    };
+
     // Load auto_play_next setting from localStorage on mount
     let mut auto_play_next_init = auto_play_next;
     use_effect(move || {
@@ -59,21 +81,19 @@ pub fn Player(
             let default_value = serde_json::json!(false);
             let setting_result: Result<serde_json::Value, _> =
                 video_js::getSetting("auto_play_next", default_value).await;
-            if let Ok(value) = setting_result {
-                if let Some(auto_play) = value.as_bool() {
-                    auto_play_next_init.set(auto_play);
-                }
+            if let Ok(value) = setting_result
+                && let Some(auto_play) = value.as_bool()
+            {
+                auto_play_next_init.set(auto_play);
             }
         });
     });
 
-    // Get server config from context
-    let server_config = use_context::<ServerConfig>();
-
     // Get router for navigation
     let router = router();
 
-    // Get window service for fullscreen control
+    // Get window service for fullscreen control (desktop only)
+    #[cfg(feature = "desktop")]
     let window_service = dioxus::desktop::use_window();
 
     // Track fullscreen state
@@ -95,41 +115,66 @@ pub fn Player(
         let has_video = video_info_sync().is_some();
         if has_video {
             spawn(async move {
-                // Wait a bit for video element to be created
-                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
                 let _ = video_js::setAutoPlayNext(enabled).await;
             });
         }
     });
 
-    // Update fullscreen state when window fullscreen changes (for macOS native button)
-    // Clone window_service for use in closure
-    let window_service_clone = window_service.clone();
-    // Check initial fullscreen state
-    use_effect(move || {
-        let current_fullscreen = window_service_clone.fullscreen().is_some();
-        is_fullscreen.set(current_fullscreen);
-    });
-
-    // Set up periodic check for fullscreen state changes
-    // This detects when user clicks macOS native fullscreen button
-    let window_service_poll = window_service.clone();
-    let is_fullscreen_poll = is_fullscreen;
-    use_effect(move || {
-        let window_service_inner = window_service_poll.clone();
-        let mut is_fullscreen_inner = is_fullscreen_poll;
-        spawn(async move {
-            let mut last_state = is_fullscreen_inner();
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-                let current_state = window_service_inner.fullscreen().is_some();
-                if current_state != last_state {
-                    is_fullscreen_inner.set(current_state);
-                    last_state = current_state;
-                }
-            }
+    // Update fullscreen state
+    #[cfg(feature = "desktop")]
+    {
+        // Desktop: use window service
+        let window_service_clone = window_service.clone();
+        use_effect(move || {
+            let current_fullscreen = window_service_clone.fullscreen().is_some();
+            is_fullscreen.set(current_fullscreen);
         });
-    });
+
+        let window_service_poll = window_service.clone();
+        let is_fullscreen_poll = is_fullscreen;
+        use_effect(move || {
+            let window_service_inner = window_service_poll.clone();
+            let mut is_fullscreen_inner = is_fullscreen_poll;
+            spawn(async move {
+                let mut last_state = is_fullscreen_inner();
+                loop {
+                    // Poll fullscreen state
+                    let current_state = window_service_inner.fullscreen().is_some();
+                    if current_state != last_state {
+                        is_fullscreen_inner.set(current_state);
+                        last_state = current_state;
+                    }
+                    // Yield to allow other tasks to run
+                    use std::future::ready;
+                    ready(()).await;
+                }
+            });
+        });
+    }
+
+    #[cfg(not(feature = "desktop"))]
+    {
+        // Web: use JavaScript
+        let is_fullscreen_poll = is_fullscreen;
+        use_effect(move || {
+            let mut is_fullscreen_inner = is_fullscreen_poll;
+            spawn(async move {
+                loop {
+                    match video_js::isPlayerPageFullscreen().await {
+                        Ok(current_state) => {
+                            is_fullscreen_inner.set(current_state);
+                        }
+                        Err(_) => {
+                            // Ignore errors
+                        }
+                    }
+                    // Yield to allow other tasks to run
+                    use std::future::ready;
+                    ready(()).await;
+                }
+            });
+        });
+    }
 
     // State management is handled in JavaScript
     // JavaScript will restore episode and position automatically via setupPlaybackTracking
@@ -148,73 +193,92 @@ pub fn Player(
 
     use_effect(move || {
         let series_url: String = series_for_episodes.url.clone();
-        let server_config_clone = server_config;
         spawn(async move {
             episodes_loading_restore.set(true);
 
-            match api_client::list_episodes(&series_url, server_config_clone.port).await {
+            let result = async {
+                #[cfg(feature = "desktop")]
+                {
+                    wco::list_episodes(&series_url).await
+                }
+                #[cfg(not(feature = "desktop"))]
+                {
+                    match api::list_episodes(series_url).await {
+                        Ok(episodes) => Ok(episodes),
+                        Err(e) => Err(wco::WcoError::Other(e.to_string())),
+                    }
+                }
+            }
+            .await;
+
+            match result {
                 Ok(eps) => {
                     episodes_restore.set(eps.clone());
 
                     // After episodes are loaded, try to restore saved episode
-                    let state_result = video_js::loadAppState::<Option<crate::AppState>>().await;
-                    if let Ok(Some(state)) = state_result {
-                        if let Some(saved_episode) = state.episode {
-                            // Find matching episode in the loaded list
-                            if let Some(episode_to_restore) =
-                                eps.iter().find(|ep| ep.url == saved_episode.url)
-                            {
-                                // Set selected episode
-                                selected_episode_restore.set(Some(episode_to_restore.clone()));
+                    let state_result = video_js::loadAppState::<Option<AppState>>().await;
+                    if let Ok(Some(state)) = state_result
+                        && let Some(saved_episode) = state.episode
+                    {
+                        // Find matching episode in the loaded list
+                        if let Some(episode_to_restore) =
+                            eps.iter().find(|ep| ep.url == saved_episode.url)
+                        {
+                            // Set selected episode
+                            selected_episode_restore.set(Some(episode_to_restore.clone()));
 
-                                // Restore playback position if available
-                                if let Some(saved_position) = state.playback_position {
-                                    playback_position_restore.set(Some(saved_position));
-                                }
+                            // Restore playback position if available
+                            if let Some(saved_position) = state.playback_position {
+                                playback_position_restore.set(Some(saved_position));
+                            }
 
-                                // Scroll to the restored episode in the list
-                                let episode_url_for_scroll = episode_to_restore.url.clone();
-                                spawn(async move {
-                                    // Wait a bit for DOM to update with the selected episode
-                                    tokio::time::sleep(tokio::time::Duration::from_millis(100))
-                                        .await;
-                                    let _ =
-                                        video_js::restorePlaybackEpisode(&episode_url_for_scroll)
-                                            .await;
-                                });
+                            // Scroll to the restored episode in the list
+                            let episode_url_for_scroll = episode_to_restore.url.clone();
+                            spawn(async move {
+                                let _ =
+                                    video_js::restorePlaybackEpisode(&episode_url_for_scroll).await;
+                            });
 
-                                // Load video info for the restored episode
-                                video_loading_restore.set(true);
-                                video_error_restore.set(None);
+                            // Load video info for the restored episode
+                            video_loading_restore.set(true);
+                            video_error_restore.set(None);
 
-                                let episode_url_for_info = episode_to_restore.url.clone();
-                                let server_config_for_info = server_config_clone;
-                                spawn(async move {
-                                    match api_client::get_video_info(
-                                        &episode_url_for_info,
-                                        server_config_for_info.port,
-                                    )
-                                    .await
+                            let episode_url_for_info = episode_to_restore.url.clone();
+                            spawn(async move {
+                                let result = async {
+                                    #[cfg(feature = "desktop")]
                                     {
-                                        Ok(info) => {
-                                            // Auto-select best available quality
-                                            let best_quality = if info.full_hd_url.is_some() {
-                                                "fhd"
-                                            } else if info.hd_url.is_some() {
-                                                "hd"
-                                            } else {
-                                                "sd"
-                                            };
-                                            current_quality_restore.set(best_quality.to_string());
-                                            video_info_restore.set(Some(info));
-                                        }
-                                        Err(e) => {
-                                            video_error_restore.set(Some(e.to_string()));
+                                        wco::get_video_info(&episode_url_for_info, None).await
+                                    }
+                                    #[cfg(not(feature = "desktop"))]
+                                    {
+                                        match api::get_video_info(episode_url_for_info).await {
+                                            Ok(info) => Ok(info),
+                                            Err(e) => Err(wco::WcoError::Other(e.to_string())),
                                         }
                                     }
-                                    video_loading_restore.set(false);
-                                });
-                            }
+                                }
+                                .await;
+
+                                match result {
+                                    Ok(info) => {
+                                        // Auto-select best available quality
+                                        let best_quality = if info.full_hd_url.is_some() {
+                                            "fhd"
+                                        } else if info.hd_url.is_some() {
+                                            "hd"
+                                        } else {
+                                            "sd"
+                                        };
+                                        current_quality_restore.set(best_quality.to_string());
+                                        video_info_restore.set(Some(info));
+                                    }
+                                    Err(e) => {
+                                        video_error_restore.set(Some(e.to_string()));
+                                    }
+                                }
+                                video_loading_restore.set(false);
+                            });
                         }
                     }
                 }
@@ -246,10 +310,9 @@ pub fn Player(
             video_error_clone.set(None);
             video_loading_clone.set(true);
 
-            // Scroll to the selected episode after a short delay to ensure DOM is updated
+            // Scroll to the selected episode
             let episode_url_for_scroll = episode_url.clone();
             spawn(async move {
-                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
                 let _ = video_js::scrollToEpisode(&episode_url_for_scroll).await;
             });
 
@@ -273,7 +336,22 @@ pub fn Player(
             });
 
             spawn(async move {
-                match api_client::get_video_info(&episode_url_for_info, server_config.port).await {
+                let result = async {
+                    #[cfg(feature = "desktop")]
+                    {
+                        wco::get_video_info(&episode_url_for_info, None).await
+                    }
+                    #[cfg(not(feature = "desktop"))]
+                    {
+                        match api::get_video_info(episode_url_for_info).await {
+                            Ok(info) => Ok(info),
+                            Err(e) => Err(wco::WcoError::Other(e.to_string())),
+                        }
+                    }
+                }
+                .await;
+
+                match result {
                     Ok(info) => {
                         // Auto-select best available quality BEFORE setting video_info
                         let best_quality = if info.full_hd_url.is_some() {
@@ -310,7 +388,7 @@ pub fn Player(
     let video_src = video_info.read().as_ref().map(|info| {
         let quality = current_quality();
         let video_url = get_quality_url(info, &quality);
-        build_video_url(&video_url, server_config.port)
+        build_video_url(&video_url, server_port)
     });
 
     let selected_url = selected_episode.read().as_ref().map(|e| e.url.clone());
@@ -353,9 +431,10 @@ pub fn Player(
                             // Update route in localStorage before navigating
                             spawn(async move {
                                 use crate::video_js::setLastRoute;
-                                let _: Result<(), _> = setLastRoute("/search".to_string()).await;
+                                let _: Result<(), _> = setLastRoute("/search").await;
                             });
-                            router.push(crate::Route::Search {});
+                            // Navigate to search route
+                            router.push(crate::route::Route::Search {});
                         },
                         "←"
                     }
@@ -416,7 +495,8 @@ pub fn Player(
                             // Save to localStorage
                             let value_json = serde_json::json!(new_value);
                             spawn(async move {
-                                let _: Result<(), _> = video_js::setSetting("auto_play_next", value_json).await;
+                                let _: Result<(), _> = video_js::setSetting("auto_play_next", value_json)
+                                    .await;
                             });
                         },
                         "⏭"
@@ -456,5 +536,25 @@ pub fn Player(
                 }
             }
         }
+    }
+}
+
+// Player route component - needs to get series from context
+#[component]
+pub fn Player() -> Element {
+    let current_series = use_context::<Signal<Option<Series>>>();
+
+    match current_series() {
+        Some(series) => rsx! {
+            PlayerRoute { series }
+        },
+        None => rsx! {
+            div {
+                class: "error-page",
+                style: "display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;",
+                h1 { "No series selected" }
+                Link { to: crate::route::Route::Search {}, "Go to Search" }
+            }
+        },
     }
 }

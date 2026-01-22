@@ -1,142 +1,299 @@
 // Video player fullscreen and overlay control logic
-import { loadAppState, updatePlaybackPosition } from "./state_manager"
-const HIDE_DELAY = 3000 // 3 seconds
-const EDGE_THRESHOLD = 50 // pixels from edge
-let headerHideTimeout = null
-let sidebarHideTimeout = null
+import { loadAppState, setPlaybackPosition } from "./state_manager";
+/**
+ * Check if an element is fully visible within its scrollable container
+ */
+function isElementVisible(element, container) {
+    const containerRect = container.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+    // Check if element is within container's visible area
+    return (elementRect.top >= containerRect.top &&
+        elementRect.bottom <= containerRect.bottom);
+}
+/**
+ * Scroll to a specific episode in the episode list
+ * Only scrolls if the episode is not fully visible in the viewport
+ * @param episodeUrl - URL of the episode to scroll to
+ */
+export function scrollToEpisode(episodeUrl) {
+    // Find the episode item by data attribute
+    const episodeItem = document.querySelector(`.episode-item[data-episode-url="${CSS.escape(episodeUrl)}"]`);
+    if (!episodeItem) {
+        return;
+    }
+    // Get the episode list container
+    const episodeListContent = document.querySelector(".episode-list-content");
+    if (!episodeListContent) {
+        return;
+    }
+    // Check if element is already fully visible
+    if (isElementVisible(episodeItem, episodeListContent)) {
+        return;
+    }
+    // Calculate scroll position to center the episode item
+    const containerRect = episodeListContent.getBoundingClientRect();
+    const itemRect = episodeItem.getBoundingClientRect();
+    const scrollTop = episodeListContent.scrollTop;
+    const itemOffsetTop = itemRect.top - containerRect.top + scrollTop;
+    const containerHeight = containerRect.height;
+    const itemHeight = itemRect.height;
+    // Scroll to center the item in the container
+    const targetScrollTop = itemOffsetTop - containerHeight / 2 + itemHeight / 2;
+    // Smooth scroll to the target position
+    episodeListContent.scrollTo({
+        top: Math.max(0, targetScrollTop),
+        behavior: "smooth",
+    });
+}
+/**
+ * Scroll to the currently selected episode
+ * This function automatically finds the selected episode and scrolls to it
+ */
+export function scrollToSelectedEpisode() {
+    // Find the selected episode item
+    const selectedEpisode = document.querySelector(".episode-item.selected");
+    if (!selectedEpisode) {
+        return;
+    }
+    // Get the episode URL from data attribute
+    const episodeUrl = selectedEpisode.getAttribute("data-episode-url");
+    if (!episodeUrl) {
+        return;
+    }
+    // Scroll to the selected episode
+    scrollToEpisode(episodeUrl);
+}
+/**
+ * Restore playback episode from localStorage
+ * This function scrolls to the saved episode in the episode list
+ * @param episodeUrl - URL of the episode to restore (optional, will load from localStorage if not provided)
+ */
+export function restorePlaybackEpisode(episodeUrl) {
+    // If episodeUrl is not provided, try to load from localStorage
+    let urlToScroll = episodeUrl;
+    if (!urlToScroll) {
+        const state = loadAppState();
+        if (state && state.episode) {
+            urlToScroll = state.episode.url;
+        }
+        else {
+            return;
+        }
+    }
+    if (!urlToScroll) {
+        return;
+    }
+    // Wait for DOM to be ready, then scroll to the episode
+    // Use MutationObserver to wait for episode list to be rendered
+    const observer = new MutationObserver(() => {
+        const episodeItem = document.querySelector(`.episode-item[data-episode-url="${CSS.escape(urlToScroll)}"]`);
+        if (episodeItem) {
+            // Episode item found, scroll to it
+            observer.disconnect();
+            scrollToEpisode(urlToScroll);
+        }
+    });
+    // Start observing
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+    });
+    // Also try immediately in case the episode list is already rendered
+    const episodeItem = document.querySelector(`.episode-item[data-episode-url="${CSS.escape(urlToScroll)}"]`);
+    if (episodeItem) {
+        observer.disconnect();
+        scrollToEpisode(urlToScroll);
+    }
+    else {
+        // If not found immediately, set a timeout to stop observing after a reasonable time
+        setTimeout(() => {
+            observer.disconnect();
+        }, 5000); // Stop observing after 5 seconds
+    }
+}
+/**
+ * Setup automatic scrolling when episode selection changes
+ * This observes changes to the selected episode and automatically scrolls to it
+ */
+export function setupAutoScrollOnSelection() {
+    // Use MutationObserver to watch for changes to the selected class
+    const observer = new MutationObserver(() => {
+        // Check if there's a selected episode
+        const selectedEpisode = document.querySelector(".episode-item.selected");
+        if (selectedEpisode) {
+            // Small delay to ensure DOM is fully updated
+            setTimeout(() => {
+                scrollToSelectedEpisode();
+            }, 50);
+        }
+    });
+    // Observe the episode list container for class changes
+    const episodeListContent = document.querySelector(".episode-list-content");
+    if (episodeListContent) {
+        observer.observe(episodeListContent, {
+            attributes: true,
+            attributeFilter: ["class"],
+            childList: true,
+            subtree: true,
+        });
+    }
+    else {
+        // If container doesn't exist yet, wait for it
+        const waitObserver = new MutationObserver(() => {
+            const container = document.querySelector(".episode-list-content");
+            if (container) {
+                waitObserver.disconnect();
+                observer.observe(container, {
+                    attributes: true,
+                    attributeFilter: ["class"],
+                    childList: true,
+                    subtree: true,
+                });
+            }
+        });
+        waitObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+        });
+        // Stop waiting after 10 seconds
+        setTimeout(() => {
+            waitObserver.disconnect();
+        }, 10000);
+    }
+}
+const HIDE_DELAY = 3000; // 3 seconds
+const EDGE_THRESHOLD = 50; // pixels from edge
+let headerHideTimeout = null;
+let sidebarHideTimeout = null;
 /**
  * Check if player-page has fullscreen-mode class
  * This can be called from Rust to sync state
  */
 export function isPlayerPageFullscreen() {
-    const playerPage = document.getElementById("player-page")
-    return playerPage ? playerPage.classList.contains("fullscreen-mode") : false
+    const playerPage = document.getElementById("player-page");
+    return playerPage ? playerPage.classList.contains("fullscreen-mode") : false;
 }
 /**
  * Check if window is in fullscreen mode
  * In Dioxus Desktop (Wry), when window enters fullscreen, it takes up the entire screen
  */
 export function checkWindowFullscreen() {
-    const playerPage = document.getElementById("player-page")
+    const playerPage = document.getElementById("player-page");
     if (!playerPage) {
-        return false
+        return false;
     }
     // Check if window dimensions match screen dimensions (with small tolerance)
     // This detects native macOS fullscreen button
-    const windowWidth = globalThis.innerWidth
-    const windowHeight = globalThis.innerHeight
-    const screenWidth = screen.width
-    const screenHeight = screen.height
+    const windowWidth = globalThis.innerWidth;
+    const windowHeight = globalThis.innerHeight;
+    const screenWidth = screen.width;
+    const screenHeight = screen.height;
     // Consider fullscreen if window takes up at least 95% of screen
     const isFullscreen = (windowWidth >= screenWidth * 0.95 &&
         windowHeight >= screenHeight * 0.95) ||
         // Also check if window is maximized (close to screen size)
         (Math.abs(windowWidth - screenWidth) < 10 &&
-            Math.abs(windowHeight - screenHeight) < 10)
+            Math.abs(windowHeight - screenHeight) < 10);
     // Update player-page class based on fullscreen state
     if (isFullscreen) {
         if (!playerPage.classList.contains("fullscreen-mode")) {
-            console.log("🔄 Window entered fullscreen (native button)")
-            playerPage.classList.add("fullscreen-mode")
-        }
-    } else {
-        if (playerPage.classList.contains("fullscreen-mode")) {
-            console.log("🔄 Window exited fullscreen (native button)")
-            playerPage.classList.remove("fullscreen-mode")
+            playerPage.classList.add("fullscreen-mode");
         }
     }
-    return isFullscreen
+    else {
+        if (playerPage.classList.contains("fullscreen-mode")) {
+            playerPage.classList.remove("fullscreen-mode");
+        }
+    }
+    return isFullscreen;
 }
 /**
  * Watch for fullscreen mode changes and update body/html styles
  */
 export function updateFullscreenStyles() {
-    const playerPage = document.getElementById("player-page")
+    const playerPage = document.getElementById("player-page");
     if (!playerPage) {
-        console.log("⚠️ player-page not found")
-        return
+        return;
     }
     // Check window fullscreen state first (for native button)
-    checkWindowFullscreen()
-    const isFullscreen = playerPage.classList.contains("fullscreen-mode")
-    console.log("🎬 updateFullscreenStyles: isFullscreen =", isFullscreen)
+    checkWindowFullscreen();
+    const isFullscreen = playerPage.classList.contains("fullscreen-mode");
     if (isFullscreen) {
-        console.log("✅ Applying fullscreen styles to body/html")
-        document.body.style.margin = "0"
-        document.body.style.padding = "0"
-        document.body.style.overflow = "hidden"
-        document.body.style.width = "100vw"
-        document.body.style.height = "100vh"
-        document.body.style.position = "fixed"
-        document.body.style.top = "0"
-        document.body.style.left = "0"
-        document.documentElement.style.margin = "0"
-        document.documentElement.style.padding = "0"
-        document.documentElement.style.overflow = "hidden"
-        document.documentElement.style.width = "100vw"
-        document.documentElement.style.height = "100vh"
-    } else {
-        console.log("🔄 Removing fullscreen styles from body/html")
-        document.body.style.margin = ""
-        document.body.style.padding = ""
-        document.body.style.overflow = ""
-        document.body.style.width = ""
-        document.body.style.height = ""
-        document.body.style.position = ""
-        document.body.style.top = ""
-        document.body.style.left = ""
-        document.documentElement.style.margin = ""
-        document.documentElement.style.padding = ""
-        document.documentElement.style.overflow = ""
-        document.documentElement.style.width = ""
-        document.documentElement.style.height = ""
+        document.body.style.margin = "0";
+        document.body.style.padding = "0";
+        document.body.style.overflow = "hidden";
+        document.body.style.width = "100vw";
+        document.body.style.height = "100vh";
+        document.body.style.position = "fixed";
+        document.body.style.top = "0";
+        document.body.style.left = "0";
+        document.documentElement.style.margin = "0";
+        document.documentElement.style.padding = "0";
+        document.documentElement.style.overflow = "hidden";
+        document.documentElement.style.width = "100vw";
+        document.documentElement.style.height = "100vh";
+    }
+    else {
+        document.body.style.margin = "";
+        document.body.style.padding = "";
+        document.body.style.overflow = "";
+        document.body.style.width = "";
+        document.body.style.height = "";
+        document.body.style.position = "";
+        document.body.style.top = "";
+        document.body.style.left = "";
+        document.documentElement.style.margin = "";
+        document.documentElement.style.padding = "";
+        document.documentElement.style.overflow = "";
+        document.documentElement.style.width = "";
+        document.documentElement.style.height = "";
     }
 }
 function showHeader() {
-    const header = document.getElementById("player-header")
+    const header = document.getElementById("player-header");
     if (header) {
         // Clear any existing hide timeout
         if (headerHideTimeout) {
-            clearTimeout(headerHideTimeout)
-            headerHideTimeout = null
+            clearTimeout(headerHideTimeout);
+            headerHideTimeout = null;
         }
-        header.classList.add("visible")
+        header.classList.add("visible");
     }
 }
 function hideHeader() {
-    const header = document.getElementById("player-header")
+    const header = document.getElementById("player-header");
     if (header && header.classList.contains("visible")) {
         // Only start hide timer if not already started
         // This ensures that once mouse leaves, timer starts and won't be reset by subsequent mouse moves
         if (!headerHideTimeout) {
             headerHideTimeout = setTimeout(() => {
-                header.classList.remove("visible")
-                headerHideTimeout = null
-            }, HIDE_DELAY)
+                header.classList.remove("visible");
+                headerHideTimeout = null;
+            }, HIDE_DELAY);
         }
     }
 }
 function showSidebar() {
-    const sidebar = document.getElementById("episode-sidebar")
+    const sidebar = document.getElementById("episode-sidebar");
     if (sidebar) {
         // Clear any existing hide timeout
         if (sidebarHideTimeout) {
-            clearTimeout(sidebarHideTimeout)
-            sidebarHideTimeout = null
+            clearTimeout(sidebarHideTimeout);
+            sidebarHideTimeout = null;
         }
-        sidebar.classList.add("visible")
+        sidebar.classList.add("visible");
     }
 }
 function hideSidebar() {
-    const sidebar = document.getElementById("episode-sidebar")
+    const sidebar = document.getElementById("episode-sidebar");
     if (sidebar && sidebar.classList.contains("visible")) {
         // Only start hide timer if not already started
         // This ensures that once mouse leaves, timer starts and won't be reset by subsequent mouse moves
         if (!sidebarHideTimeout) {
             sidebarHideTimeout = setTimeout(() => {
-                sidebar.classList.remove("visible")
-                sidebarHideTimeout = null
-            }, HIDE_DELAY)
+                sidebar.classList.remove("visible");
+                sidebarHideTimeout = null;
+            }, HIDE_DELAY);
         }
     }
 }
@@ -144,476 +301,473 @@ function hideSidebar() {
  * Setup fullscreen hover functionality
  */
 export function setupFullscreenHover() {
-    const playerPage = document.getElementById("player-page")
+    const playerPage = document.getElementById("player-page");
     if (!playerPage) {
-        console.log("⚠️ player-page not found, retrying...")
-        setTimeout(setupFullscreenHover, 100)
-        return
+        setTimeout(setupFullscreenHover, 100);
+        return;
     }
     // Update body/html styles for fullscreen
-    updateFullscreenStyles()
+    updateFullscreenStyles();
     // Check if in fullscreen mode
-    const isFullscreen = playerPage.classList.contains("fullscreen-mode")
-    console.log("🎬 setupFullscreenHover: isFullscreen=", isFullscreen)
+    const isFullscreen = playerPage.classList.contains("fullscreen-mode");
     if (!isFullscreen) {
         // Ensure overlays are hidden when exiting fullscreen
-        const header = document.getElementById("player-header")
-        const sidebar = document.getElementById("episode-sidebar")
+        const header = document.getElementById("player-header");
+        const sidebar = document.getElementById("episode-sidebar");
         if (header) {
-            header.classList.remove("visible")
+            header.classList.remove("visible");
         }
         if (sidebar) {
-            sidebar.classList.remove("visible")
+            sidebar.classList.remove("visible");
         }
-        return // Not in fullscreen, no need to setup hover
+        return; // Not in fullscreen, no need to setup hover
     }
     // Get header and sidebar dimensions
-    const header = document.getElementById("player-header")
-    const sidebar = document.getElementById("episode-sidebar")
+    const header = document.getElementById("player-header");
+    const sidebar = document.getElementById("episode-sidebar");
     // Remove old event listeners if any
     // deno-lint-ignore no-explicit-any
-    const oldHandler = playerPage.__fullscreenMouseMoveHandler
+    const oldHandler = playerPage.__fullscreenMouseMoveHandler;
     if (oldHandler) {
-        playerPage.removeEventListener("mousemove", oldHandler)
+        playerPage.removeEventListener("mousemove", oldHandler);
     }
     // Mouse move handler
     function handleMouseMove(e) {
-        const x = e.clientX
-        const y = e.clientY
+        const x = e.clientX;
+        const y = e.clientY;
         // Check header visibility
         if (header) {
-            const isNearTop = y < EDGE_THRESHOLD
+            const isNearTop = y < EDGE_THRESHOLD;
             // When header is visible, check if mouse is in it
-            let isInHeader = false
+            let isInHeader = false;
             if (header.classList.contains("visible")) {
-                const headerRect = header.getBoundingClientRect()
+                const headerRect = header.getBoundingClientRect();
                 // Check if mouse is actually in the visible header area
                 // When visible, header should be at top: 0, so check y within header height
                 isInHeader = y >= headerRect.top && y <= headerRect.bottom &&
                     x >= headerRect.left && x <= headerRect.right &&
-                    headerRect.top >= 0 // Ensure header is actually visible (not translated out)
+                    headerRect.top >= 0; // Ensure header is actually visible (not translated out)
             }
             if (isNearTop || isInHeader) {
                 // Mouse is in header area, show it
-                showHeader()
-            } else {
+                showHeader();
+            }
+            else {
                 // Mouse is outside header area, start hide timer
                 // Don't check for buffer - if mouse is outside, start hiding
-                hideHeader()
+                hideHeader();
             }
         }
         // Check sidebar visibility
         if (sidebar) {
-            const isNearLeft = x < EDGE_THRESHOLD
+            const isNearLeft = x < EDGE_THRESHOLD;
             // When sidebar is visible, check if mouse is in it
-            let isInSidebar = false
+            let isInSidebar = false;
             if (sidebar.classList.contains("visible")) {
-                const sidebarRect = sidebar.getBoundingClientRect()
+                const sidebarRect = sidebar.getBoundingClientRect();
                 // Check if mouse is actually in the visible sidebar area
                 // When visible, sidebar should be at left: 0, so check x within sidebar width
                 isInSidebar = x >= sidebarRect.left && x <= sidebarRect.right &&
                     y >= sidebarRect.top && y <= sidebarRect.bottom &&
-                    sidebarRect.left >= 0 // Ensure sidebar is actually visible (not translated out)
+                    sidebarRect.left >= 0; // Ensure sidebar is actually visible (not translated out)
             }
             if (isNearLeft || isInSidebar) {
                 // Mouse is in sidebar area, show it
-                showSidebar()
-            } else {
+                showSidebar();
+            }
+            else {
                 // Mouse is outside sidebar area, start hide timer
                 // Don't check for buffer - if mouse is outside, start hiding
-                hideSidebar()
+                hideSidebar();
             }
         }
     }
     // Store handler reference for cleanup
     // deno-lint-ignore no-explicit-any
-    const existingHandler = playerPage.__fullscreenMouseMoveHandler
+    const existingHandler = playerPage.__fullscreenMouseMoveHandler;
     if (existingHandler) {
-        console.log("🔄 Removing old mousemove handler")
-        playerPage.removeEventListener("mousemove", existingHandler)
+        playerPage.removeEventListener("mousemove", existingHandler);
     }
-    Object.assign(playerPage, { __fullscreenMouseMoveHandler: handleMouseMove })
-    playerPage.addEventListener("mousemove", handleMouseMove)
-    console.log("✅ Added mousemove handler for fullscreen hover")
+    Object.assign(playerPage, { __fullscreenMouseMoveHandler: handleMouseMove });
+    playerPage.addEventListener("mousemove", handleMouseMove);
     // Keep visible when hovering over the elements
     if (header) {
-        header.addEventListener("mouseenter", showHeader)
+        header.addEventListener("mouseenter", showHeader);
         header.addEventListener("mouseleave", () => {
             // Will be handled by mousemove event
-        })
+        });
     }
     if (sidebar) {
-        sidebar.addEventListener("mouseenter", showSidebar)
+        sidebar.addEventListener("mouseenter", showSidebar);
         sidebar.addEventListener("mouseleave", () => {
             // Will be handled by mousemove event
-        })
+        });
     }
 }
 /**
  * Initialize video player controls
  */
 export function initVideoPlayerControls() {
-    console.log("🚀 initVideoPlayerControls called")
     // Setup when DOM is ready
     if (document.readyState === "loading") {
-        console.log("⏳ Document still loading, waiting for DOMContentLoaded")
-        document.addEventListener("DOMContentLoaded", setupFullscreenHover)
-    } else {
-        console.log("✅ Document ready, calling setupFullscreenHover")
-        setupFullscreenHover()
+        document.addEventListener("DOMContentLoaded", setupFullscreenHover);
     }
+    else {
+        setupFullscreenHover();
+    }
+    // Setup automatic scrolling when episode selection changes
+    setupAutoScrollOnSelection();
     // Setup global observer to automatically track video elements when they're added to DOM
     const videoObserver = new MutationObserver(() => {
-        const video = document.querySelector("video.video-element")
+        const video = document.querySelector("video.video-element");
         if (video && !video.dataset.trackingSetup) {
             // Mark as setup to avoid duplicate setup
-            video.dataset.trackingSetup = "true"
-            console.log("🎬 Video element detected, setting up playback tracking")
-            setupPlaybackTracking("video-player", null)
+            video.dataset.trackingSetup = "true";
+            setupPlaybackTracking("video-player", null);
         }
-    })
-    videoObserver.observe(document.body, { childList: true, subtree: true })
+    });
+    videoObserver.observe(document.body, { childList: true, subtree: true });
     // Also check immediately in case video already exists
-    const existingVideo = document.querySelector("video.video-element")
+    const existingVideo = document.querySelector("video.video-element");
     if (existingVideo && !existingVideo.dataset.trackingSetup) {
-        existingVideo.dataset.trackingSetup = "true"
-        console.log("🎬 Existing video element found, setting up playback tracking")
-        setupPlaybackTracking("video-player", null)
+        existingVideo.dataset.trackingSetup = "true";
+        setupPlaybackTracking("video-player", null);
     }
     // Watch for fullscreen mode changes
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             if (mutation.type === "attributes" && mutation.attributeName === "class") {
-                console.log("🔄 Class changed, updating styles...")
-                updateFullscreenStyles()
-                setupFullscreenHover()
+                updateFullscreenStyles();
+                setupFullscreenHover();
             }
-        })
-    })
-    const playerPage = document.getElementById("player-page")
+        });
+    });
+    const playerPage = document.getElementById("player-page");
     if (playerPage) {
         // Initial update
-        updateFullscreenStyles()
+        updateFullscreenStyles();
         observer.observe(playerPage, {
             attributes: true,
             attributeFilter: ["class"],
-        })
+        });
         // Listen for window resize to detect native fullscreen button (macOS)
         globalThis.addEventListener("resize", () => {
-            console.log("🔄 Window resized, checking fullscreen state...")
-            const wasFullscreen = playerPage.classList.contains("fullscreen-mode")
-            const isNowFullscreen = checkWindowFullscreen()
+            const wasFullscreen = playerPage.classList.contains("fullscreen-mode");
+            const isNowFullscreen = checkWindowFullscreen();
             if (wasFullscreen !== isNowFullscreen) {
-                console.log("🔄 Fullscreen state changed via native button:", isNowFullscreen)
-                updateFullscreenStyles()
-                setupFullscreenHover()
+                updateFullscreenStyles();
+                setupFullscreenHover();
             }
-        })
-    } else {
+        });
+    }
+    else {
         // Retry if player-page not found yet
         setTimeout(() => {
-            const playerPage = document.getElementById("player-page")
+            const playerPage = document.getElementById("player-page");
             if (playerPage) {
-                updateFullscreenStyles()
+                updateFullscreenStyles();
                 observer.observe(playerPage, {
                     attributes: true,
                     attributeFilter: ["class"],
-                })
+                });
                 // Listen for window resize to detect native fullscreen button (macOS)
                 globalThis.addEventListener("resize", () => {
-                    const wasFullscreen = playerPage.classList.contains("fullscreen-mode")
-                    const isNowFullscreen = checkWindowFullscreen()
+                    const wasFullscreen = playerPage.classList.contains("fullscreen-mode");
+                    const isNowFullscreen = checkWindowFullscreen();
                     if (wasFullscreen !== isNowFullscreen) {
-                        updateFullscreenStyles()
-                        setupFullscreenHover()
+                        updateFullscreenStyles();
+                        setupFullscreenHover();
                     }
-                })
+                });
             }
-        }, 100)
+        }, 100);
     }
     // Also check periodically in case resize event doesn't fire
     setInterval(() => {
-        const playerPage = document.getElementById("player-page")
+        const playerPage = document.getElementById("player-page");
         if (playerPage) {
-            const wasFullscreen = playerPage.classList.contains("fullscreen-mode")
-            const isNowFullscreen = checkWindowFullscreen()
+            const wasFullscreen = playerPage.classList.contains("fullscreen-mode");
+            const isNowFullscreen = checkWindowFullscreen();
             if (wasFullscreen !== isNowFullscreen) {
-                console.log("🔄 Fullscreen state changed (periodic check):", isNowFullscreen)
-                updateFullscreenStyles()
-                setupFullscreenHover()
+                updateFullscreenStyles();
+                setupFullscreenHover();
             }
         }
-    }, 500)
+    }, 500);
 }
 // Playback position tracking
-let playbackProgressInterval = null
-let lastSavedPosition = 0
+let playbackProgressInterval = null;
+let lastSavedPosition = 0;
 // Global state for playback tracking
-let currentPlaybackPosition = null
-let playbackEnded = false
+let currentPlaybackPosition = null;
+let playbackEnded = false;
 /**
  * Setup playback position tracking for a video element
  * @param videoId - ID of the video element
  * @param savedPosition - Position to restore (in seconds)
  */
-export function setupPlaybackTracking(videoId, savedPosition) {
+export function setupPlaybackTracking(_videoId, savedPosition) {
     // Clean up existing interval
     if (playbackProgressInterval) {
-        console.log("🧹 Clearing existing playback progress interval in setupPlaybackTracking")
-        clearInterval(playbackProgressInterval)
-        playbackProgressInterval = null
+        clearInterval(playbackProgressInterval);
+        playbackProgressInterval = null;
     }
     // Find video element by class (more reliable)
-    const video = document.querySelector("video.video-element")
+    const video = document.querySelector("video.video-element");
     if (!video) {
         // Wait for video element to be added to DOM
         const observer = new MutationObserver(() => {
-            const videoElement = document.querySelector("video.video-element")
+            const videoElement = document.querySelector("video.video-element");
             if (videoElement) {
-                observer.disconnect()
-                setupPlaybackTrackingForVideo(videoElement, savedPosition)
+                observer.disconnect();
+                setupPlaybackTrackingForVideo(videoElement, savedPosition);
             }
-        })
-        observer.observe(document.body, { childList: true, subtree: true })
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
         // Also try again after a short delay as fallback
         setTimeout(() => {
-            const videoElement = document.querySelector("video.video-element")
+            const videoElement = document.querySelector("video.video-element");
             if (videoElement) {
-                observer.disconnect()
-                setupPlaybackTrackingForVideo(videoElement, savedPosition)
+                observer.disconnect();
+                setupPlaybackTrackingForVideo(videoElement, savedPosition);
             }
-        }, 100)
-        return
+        }, 100);
+        return;
     }
-    setupPlaybackTrackingForVideo(video, savedPosition)
+    setupPlaybackTrackingForVideo(video, savedPosition);
 }
 /**
  * Setup playback tracking for a specific video element
  */
 function setupPlaybackTrackingForVideo(video, savedPosition) {
     // Reset ended flag
-    playbackEnded = false
+    playbackEnded = false;
     // Set autoplay attribute via JavaScript (since Dioxus may not support it directly in RSX)
-    video.setAttribute("autoplay", "autoplay")
+    video.setAttribute("autoplay", "autoplay");
     // Get saved position from localStorage if not provided
     // But only if it matches the current episode
-    let positionToRestore = savedPosition
+    let positionToRestore = savedPosition;
     if (positionToRestore === null) {
-        const state = loadAppState()
+        const state = loadAppState();
         if (state && state.playback_position && state.episode) {
             // Check if the saved episode matches the current video
             // We can't directly check the video URL, but we can check if episode URL matches
             // For now, we'll restore if episode exists in state
-            // The episode URL should match what's in the DOM or be set by updateSeriesAndEpisode
-            positionToRestore = state.playback_position
-            console.log(
-                `📺 Loaded saved position from localStorage: ${
-                    positionToRestore.toFixed(2)
-                }s for episode: ${state.episode.title}`,
-            )
-        } else if (state && state.playback_position && !state.episode) {
+            // The episode URL should match what's in the DOM or be set by setSeriesAndEpisode
+            positionToRestore = state.playback_position;
+        }
+        else if (state && state.playback_position && !state.episode) {
             // If there's a position but no episode, clear it (stale data)
-            console.log("🧹 Found stale playback position without episode, clearing it")
-            updatePlaybackPosition(null)
+            setPlaybackPosition(null);
         }
     }
     // Restore saved position and auto-play
     if (positionToRestore !== null && positionToRestore > 0) {
-        let positionRestored = false
+        let positionRestored = false;
         // Function to restore position - must wait for video to have enough data loaded
         const restorePosition = () => {
             // Wait for video to have enough data (readyState >= 2 means HAVE_CURRENT_DATA)
             // Also check that we haven't already restored
             if (!positionRestored && video.readyState >= 2 && video.duration > 0) {
                 if (positionToRestore < video.duration) {
-                    video.currentTime = positionToRestore
-                    positionRestored = true
-                    console.log(
-                        `✅ Restored playback position: ${positionToRestore.toFixed(2)}s / ${
-                            video.duration.toFixed(2)
-                        }s`,
-                    )
+                    video.currentTime = positionToRestore;
+                    positionRestored = true;
                     // Update global state so getCurrentPlaybackPosition returns correct value
-                    currentPlaybackPosition = positionToRestore
-                    return true
+                    currentPlaybackPosition = positionToRestore;
+                    return true;
                 }
             }
-            return false
-        }
+            return false;
+        };
         // Try to restore position immediately if video is already ready
         if (!restorePosition()) {
             // Wait for loadeddata event (fires when enough data is loaded to start playback)
             video.addEventListener("loadeddata", () => {
                 if (!restorePosition()) {
                     // If still not ready, wait a bit more and try again
-                    setTimeout(() => restorePosition(), 100)
-                    setTimeout(() => restorePosition(), 300)
+                    setTimeout(() => restorePosition(), 100);
+                    setTimeout(() => restorePosition(), 300);
                 }
-            }, { once: true })
+            }, { once: true });
             // Also try on canplay event (fires when enough data is loaded to play)
             video.addEventListener("canplay", () => {
                 if (!restorePosition()) {
-                    setTimeout(() => restorePosition(), 200)
+                    setTimeout(() => restorePosition(), 200);
                 }
-            }, { once: true })
+            }, { once: true });
             // And on canplaythrough for maximum compatibility
             video.addEventListener("canplaythrough", () => {
-                restorePosition()
-            }, { once: true })
+                restorePosition();
+            }, { once: true });
         }
         // Auto-play after position is restored
         const tryAutoPlay = () => {
             if (video.readyState >= 2 && video.paused && !video.ended) {
-                console.log("Auto-playing restored video...")
-                video.play().catch((e) => console.log("Auto-play prevented:", e))
-                return true
+                video.play().catch(() => { });
+                return true;
             }
-            return false
-        }
+            return false;
+        };
         // Try multiple times to ensure playback starts
         const playAfterRestore = () => {
             if (!tryAutoPlay()) {
                 // Retry after a short delay
-                setTimeout(() => tryAutoPlay(), 100)
-                setTimeout(() => tryAutoPlay(), 500)
+                setTimeout(() => tryAutoPlay(), 100);
+                setTimeout(() => tryAutoPlay(), 500);
             }
-        }
+        };
         // Wait for canplay event before trying to play
-        video.addEventListener("canplay", playAfterRestore, { once: true })
+        video.addEventListener("canplay", playAfterRestore, { once: true });
         // Also try on loadeddata as fallback
         video.addEventListener("loadeddata", () => {
-            setTimeout(() => playAfterRestore(), 100)
-        }, { once: true })
+            setTimeout(() => playAfterRestore(), 100);
+        }, { once: true });
         // And on canplaythrough for maximum compatibility
-        video.addEventListener("canplaythrough", playAfterRestore, { once: true })
-    } else {
+        video.addEventListener("canplaythrough", playAfterRestore, { once: true });
+    }
+    else {
         // Auto-play if no saved position
         const tryAutoPlay = () => {
             if (video.readyState >= 2 && video.paused && !video.ended) {
-                console.log("Auto-playing new video...")
-                video.play().catch((e) => console.log("Auto-play prevented:", e))
-                return true
+                video.play().catch(() => { });
+                return true;
             }
-            return false
-        }
+            return false;
+        };
         // Try multiple times to ensure playback starts
         const playNewVideo = () => {
             if (!tryAutoPlay()) {
                 // Retry after delays
-                setTimeout(() => tryAutoPlay(), 100)
-                setTimeout(() => tryAutoPlay(), 500)
+                setTimeout(() => tryAutoPlay(), 100);
+                setTimeout(() => tryAutoPlay(), 500);
             }
-        }
+        };
         // Try immediately if video is already ready
         if (!tryAutoPlay()) {
             // Wait for canplay event
-            video.addEventListener("canplay", playNewVideo, { once: true })
+            video.addEventListener("canplay", playNewVideo, { once: true });
             // Also try on loadeddata as fallback
-            video.addEventListener("loadeddata", playNewVideo, { once: true })
+            video.addEventListener("loadeddata", playNewVideo, { once: true });
             // And on canplaythrough for maximum compatibility
-            video.addEventListener("canplaythrough", playNewVideo, { once: true })
-        } else {
+            video.addEventListener("canplaythrough", playNewVideo, { once: true });
+        }
+        else {
             // If already playing, also retry after delay to ensure it continues
-            setTimeout(() => tryAutoPlay(), 200)
+            setTimeout(() => tryAutoPlay(), 200);
         }
     }
     // Track playback progress every 2 seconds and save to localStorage
-    lastSavedPosition = 0
-    console.log("🎬 Starting playback progress tracking interval", {
-        videoId: video.id,
-        videoSrc: video.src?.substring(0, 50) + "...",
-    })
+    lastSavedPosition = 0;
     // Clear any existing interval first
     if (playbackProgressInterval) {
-        console.log("🧹 Clearing existing playback progress interval")
-        clearInterval(playbackProgressInterval)
-        playbackProgressInterval = null
+        clearInterval(playbackProgressInterval);
+        playbackProgressInterval = null;
     }
     playbackProgressInterval = setInterval(() => {
-        console.log("⏰ Playback tracking interval callback fired")
         // Check if video element still exists
         if (!video || !document.contains(video)) {
-            console.error("❌ Video element not found in DOM, clearing interval")
             if (playbackProgressInterval) {
-                clearInterval(playbackProgressInterval)
-                playbackProgressInterval = null
+                clearInterval(playbackProgressInterval);
+                playbackProgressInterval = null;
             }
-            return
+            return;
         }
-        const readyState = video.readyState
-        const isPaused = video.paused
-        const isEnded = video.ended
-        const currentTime = video.currentTime
-        console.log(
-            `📊 Video state: readyState=${readyState}, paused=${isPaused}, ended=${isEnded}, currentTime=${
-                currentTime.toFixed(2)
-            }s`,
-        )
+        const readyState = video.readyState;
+        const isPaused = video.paused;
+        const isEnded = video.ended;
+        const currentTime = video.currentTime;
         if (readyState >= 2 && !isPaused && !isEnded) {
             // Update global state
-            currentPlaybackPosition = currentTime
+            currentPlaybackPosition = currentTime;
             // Only update if position changed significantly (> 1 second)
             if (Math.abs(currentTime - lastSavedPosition) > 1) {
-                lastSavedPosition = currentTime
+                lastSavedPosition = currentTime;
                 // Save to localStorage
-                console.log(`💾 Saving playback position: ${currentTime.toFixed(2)}s`)
-                updatePlaybackPosition(currentTime)
-            } else {
-                console.log(
-                    `⏸️ Position not changed enough (${currentTime.toFixed(2)}s vs ${
-                        lastSavedPosition.toFixed(2)
-                    }s), skipping save`,
-                )
+                setPlaybackPosition(currentTime);
             }
-        } else if (isEnded) {
-            currentPlaybackPosition = null
-            playbackEnded = true
-            // Clear position when video ends
-            console.log("🧹 Video ended, clearing playback position")
-            updatePlaybackPosition(null)
-        } else {
-            console.log(
-                `⚠️ Video not ready for tracking: readyState=${readyState}, paused=${isPaused}, ended=${isEnded}`,
-            )
         }
-    }, 2000)
+        else if (isEnded) {
+            currentPlaybackPosition = null;
+            playbackEnded = true;
+            // Clear position when video ends
+            setPlaybackPosition(null);
+        }
+    }, 2000);
     // Clear position when video ends
     video.addEventListener("ended", () => {
         if (playbackProgressInterval) {
-            clearInterval(playbackProgressInterval)
-            playbackProgressInterval = null
+            clearInterval(playbackProgressInterval);
+            playbackProgressInterval = null;
         }
-        currentPlaybackPosition = null
-        playbackEnded = true
+        currentPlaybackPosition = null;
+        playbackEnded = true;
         // Clear position in localStorage
-        updatePlaybackPosition(null)
-    }, { once: true })
+        setPlaybackPosition(null);
+        // Check if auto-play next is enabled
+        const autoPlayNext = video.dataset.autoPlayNext === "true";
+        if (autoPlayNext) {
+            playNextEpisode();
+        }
+    }, { once: true });
     // Note: We don't clear interval on loadstart anymore
     // because loadstart fires when video src changes, which would stop tracking
     // The interval will be cleared when setupPlaybackTracking is called again for a new video
 }
 /**
+ * Play the next episode automatically
+ */
+export function playNextEpisode() {
+    // Find the currently selected episode
+    const selectedEpisode = document.querySelector(".episode-item.selected");
+    if (!selectedEpisode) {
+        return;
+    }
+    // Find the next episode (sibling element)
+    const nextEpisode = selectedEpisode.nextElementSibling;
+    if (!nextEpisode || !nextEpisode.classList.contains("episode-item")) {
+        // No next episode, do nothing
+        return;
+    }
+    // Click the next episode to play it
+    nextEpisode.click();
+    // After clicking, wait a bit for the selection to update, then scroll
+    // The auto-scroll observer will handle this, but we can also trigger it directly
+    setTimeout(() => {
+        scrollToSelectedEpisode();
+    }, 100);
+}
+/**
+ * Set auto-play next episode state
+ * @param enabled - Whether auto-play next is enabled
+ */
+export function setAutoPlayNext(enabled) {
+    const video = document.querySelector("video.video-element");
+    if (video) {
+        video.dataset.autoPlayNext = enabled ? "true" : "false";
+    }
+}
+/**
  * Get current playback position
  */
 export function getCurrentPlaybackPosition() {
-    const video = document.querySelector("video.video-element")
+    const video = document.querySelector("video.video-element");
     if (!video) {
-        return null
+        return null;
     }
     // If video ended, return null to clear position
     if (video.ended || playbackEnded) {
-        currentPlaybackPosition = null
-        playbackEnded = false // Reset for next video
-        return null
+        currentPlaybackPosition = null;
+        playbackEnded = false; // Reset for next video
+        return null;
     }
     // Get position from video element if it has valid data
     // This ensures we get the actual currentTime, especially after restoring position
     if (video.readyState >= 2 && video.currentTime > 0) {
-        const currentTime = video.currentTime
+        const currentTime = video.currentTime;
         // Update global state
-        currentPlaybackPosition = currentTime
-        return currentTime
+        currentPlaybackPosition = currentTime;
+        return currentTime;
     }
     // Fallback to global state if video not ready yet
-    return currentPlaybackPosition
+    return currentPlaybackPosition;
 }

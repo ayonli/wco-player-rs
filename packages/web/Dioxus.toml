@@ -1,0 +1,10 @@
+[application]
+name = "WCO Player"
+default_platform = "web"
+
+[web.app]
+title = "WCO Player"
+
+[build]
+# Client target for WASM compilation
+default_target = "wasm32-unknown-unknown"

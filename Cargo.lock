@@ -924,6 +924,7 @@ name = "desktop"
 version = "0.1.0"
 dependencies = [
  "api",
+ "async-trait",
  "axum",
  "build-utils",
  "dioxus",
@@ -938,6 +939,7 @@ dependencies = [
  "ui",
  "urlencoding",
  "wco",
+ "web",
 ]
 
 [[package]]
@@ -5791,9 +5793,10 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 name = "ui"
 version = "0.1.0"
 dependencies = [
- "api",
+ "async-trait",
  "dioxus",
  "dioxus-primitives",
+ "serde",
  "wco",
 ]
 
@@ -6057,10 +6060,20 @@ dependencies = [
 name = "web"
 version = "0.1.0"
 dependencies = [
+ "api",
+ "async-trait",
+ "axum",
  "build-utils",
  "dioxus",
  "dioxus-use-js",
+ "getrandom 0.3.4",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
  "ui",
+ "urlencoding",
+ "wco",
 ]
 
 [[package]]

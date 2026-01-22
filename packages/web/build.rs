@@ -5,4 +5,8 @@ fn main() {
         panic!("TypeScript compilation failed");
     }
 
+    if let Err(e) = build_utils::compile_typescript("assets/state_manager.ts") {
+        eprintln!("❌ {}", e);
+        panic!("TypeScript compilation failed");
+    }
 }

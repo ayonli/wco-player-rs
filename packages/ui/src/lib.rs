@@ -1,8 +1,6 @@
 //! This crate contains all shared UI for the workspace.
 
-#[cfg(not(feature = "desktop"))]
 mod hero;
-#[cfg(not(feature = "desktop"))]
 pub use hero::Hero;
 
 mod navbar;
@@ -23,3 +21,9 @@ pub use video_player::VideoPlayer;
 
 mod components;
 pub use components::select::*;
+
+mod types;
+pub use types::AppState;
+
+mod api_trait;
+pub use api_trait::{ApiClient, ApiClientContext};

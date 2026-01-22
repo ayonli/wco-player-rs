@@ -1,6 +1,6 @@
+use crate::{error::Result, user_agent::UserAgent, WcoError};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
-use crate::{error::Result, user_agent::UserAgent, WcoError};
 
 /// Episode information
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -23,7 +23,7 @@ pub async fn list_episodes(series_url: &str) -> Result<Vec<Episode>> {
         .header("User-Agent", UserAgent::PostMan.as_str())
         .send()
         .await?;
-    
+
     if !res.status().is_success() {
         return Err(WcoError::Other(format!(
             "List episodes request failed: {} {}",
@@ -31,37 +31,37 @@ pub async fn list_episodes(series_url: &str) -> Result<Vec<Episode>> {
             res.status().canonical_reason().unwrap_or("")
         )));
     }
-    
+
     let html = res.text().await?;
     let document = Html::parse_document(&html);
-    
+
     let mut results = Vec::new();
-    
+
     // Try first selector pattern: div.cat-eps
     let items1_selector = Selector::parse("div.cat-eps").unwrap();
     let items1: Vec<_> = document.select(&items1_selector).collect();
-    
+
     if !items1.is_empty() {
         let anchor_selector = Selector::parse("a").unwrap();
-        
+
         for item in items1 {
             let anchor = item.select(&anchor_selector).next();
             if anchor.is_none() {
                 continue;
             }
-            
+
             let anchor = anchor.unwrap();
             let title = anchor.text().collect::<String>().trim().to_string();
-            
+
             if title.is_empty() {
                 continue;
             }
-            
+
             let url = anchor.value().attr("href");
             if url.is_none() {
                 continue;
             }
-            
+
             results.push(Episode {
                 title,
                 url: url.unwrap().to_string(),
@@ -72,37 +72,37 @@ pub async fn list_episodes(series_url: &str) -> Result<Vec<Episode>> {
         let items2_selector = Selector::parse("div#episodeList > a").unwrap();
         let span_selector = Selector::parse("span").unwrap();
         let items2: Vec<_> = document.select(&items2_selector).collect();
-        
+
         for anchor in items2 {
             let title = anchor
                 .select(&span_selector)
                 .next()
                 .map(|e| e.text().collect::<String>().trim().to_string());
-            
+
             if title.is_none() || title.as_ref().unwrap().is_empty() {
                 continue;
             }
-            
+
             let url = anchor.value().attr("href");
             if url.is_none() {
                 continue;
             }
-            
+
             results.push(Episode {
                 title: title.unwrap(),
                 url: url.unwrap().to_string(),
             });
         }
     }
-    
+
     if results.is_empty() {
         return Err(WcoError::NotFound("No episodes found".to_string()));
     }
-    
+
     // Convert relative URLs to absolute and reverse the order (chronological)
-    let base_url = reqwest::Url::parse(series_url)
-        .map_err(|e| WcoError::ParseError(e.to_string()))?;
-    
+    let base_url =
+        reqwest::Url::parse(series_url).map_err(|e| WcoError::ParseError(e.to_string()))?;
+
     let results: Vec<Episode> = results
         .into_iter()
         .map(|mut episode| {
@@ -113,6 +113,6 @@ pub async fn list_episodes(series_url: &str) -> Result<Vec<Episode>> {
         })
         .rev()
         .collect();
-    
+
     Ok(results)
 }

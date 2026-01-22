@@ -1,12 +1,9 @@
+use axum::{Router, routing::get};
 use dioxus::prelude::*;
-use serde::{Deserialize, Serialize};
-use views::Search;
+use tokio::sync::oneshot;
+use tower_http::cors::{Any, CorsLayer};
 use wco::Series;
-
-mod api_client;
-mod server;
-mod video_js;
-mod views;
+use web::{ServerPort, route::Route, streaming::streaming_video};
 
 const PLAYER_CSS: Asset = asset!("/assets/player.css");
 const DX_COMPONENTS_THEME: Asset = asset!("/assets/dx-components-theme.css");
@@ -22,68 +19,100 @@ fn main() {
         .with_inner_size(LogicalSize::new(1280.0, 800.0));
 
     // Start combined server (video proxy + API)
-    let server_port = server::start_server_sync();
+    let server_port = start_server_sync();
 
     dioxus::LaunchBuilder::new()
         .with_cfg(Config::new().with_window(window))
-        .with_context(ServerConfig { port: server_port })
+        .with_context(ServerPort(server_port))
         .launch(App);
 }
 
-/// Server configuration shared via context
-#[derive(Clone, Copy)]
-pub struct ServerConfig {
-    pub port: u16,
+/// Build the API router with all routes
+fn build_router() -> Router {
+    Router::new()
+        .route("/streaming", get(streaming_video))
+        // Add CORS
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any),
+        )
 }
 
-/// Current series context (for player page)
-#[derive(Clone, PartialEq)]
-pub struct CurrentSeries(pub Series);
+/// Start the combined server (video proxy + API) synchronously
+/// Returns the port number once the server is ready
+fn start_server_sync() -> u16 {
+    let (tx, rx) = oneshot::channel();
 
-/// Application state loaded from localStorage (matches TypeScript AppState)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AppState {
-    pub route: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub series: Option<SeriesData>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub episode: Option<EpisodeData>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub playback_position: Option<f64>,
-}
+    std::thread::spawn(move || {
+        let rt = match tokio::runtime::Runtime::new() {
+            Ok(rt) => rt,
+            Err(e) => {
+                eprintln!("❌ Failed to create tokio runtime: {}", e);
+                let _ = tx.send(0);
+                return;
+            }
+        };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SeriesData {
-    pub title: String,
-    pub url: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub thumbnail: Option<String>,
-}
+        rt.block_on(async move {
+            let app = build_router();
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EpisodeData {
-    pub title: String,
-    pub url: String,
-}
+            let listener = match tokio::net::TcpListener::bind("127.0.0.1:0").await {
+                Ok(listener) => listener,
+                Err(e) => {
+                    eprintln!("❌ Failed to bind TCP listener: {}", e);
+                    let _ = tx.send(0);
+                    return;
+                }
+            };
 
-/// Route definitions
-#[derive(Debug, Clone, Routable, PartialEq)]
-#[rustfmt::skip]
-pub enum Route {
-    #[route("/")]
-    Home {},
-    #[route("/search")]
-    Search {},
-    #[route("/player")]
-    Player {},
+            let addr = match listener.local_addr() {
+                Ok(addr) => addr,
+                Err(e) => {
+                    eprintln!("❌ Failed to get local address: {}", e);
+                    let _ = tx.send(0);
+                    return;
+                }
+            };
+
+            let port = addr.port();
+
+            // Send port back to main thread
+            if tx.send(port).is_err() {
+                eprintln!("❌ Failed to send port to main thread");
+                return;
+            }
+
+            eprintln!("🚀 API server started at http://127.0.0.1:{}", port);
+
+            if let Err(e) = axum::serve(listener, app).await {
+                eprintln!("❌ Server error: {}", e);
+            }
+        });
+    });
+
+    // Wait for server to be ready
+    match rx.blocking_recv() {
+        Ok(port) => {
+            if port == 0 {
+                eprintln!("❌ Server failed to start");
+                std::process::exit(1);
+            }
+            eprintln!("✅ API server ready on port {}", port);
+            port
+        }
+        Err(e) => {
+            eprintln!("❌ Server startup channel error: {}", e);
+            std::process::exit(1);
+        }
+    }
 }
 
 #[component]
 fn App() -> Element {
     // Current series for player page (stored in context)
     let current_series = use_signal(|| Option::<Series>::None);
-
-    // Provide current series context
     use_context_provider(|| current_series);
 
     rsx! {
@@ -92,86 +121,5 @@ fn App() -> Element {
         document::Link { rel: "stylesheet", href: PLAYER_CSS }
 
         Router::<Route> {}
-    }
-}
-
-// Home route component (default route, handles route restoration)
-#[component]
-fn Home() -> Element {
-    // Route restoration on app startup
-    let router = router();
-    let mut current_series = use_context::<Signal<Option<Series>>>();
-    let mut initialized = use_signal(|| false);
-
-    use_effect(move || {
-        if !initialized() {
-            initialized.set(true);
-            spawn(async move {
-                // Wait a bit for everything to initialize
-                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-                // Load state from localStorage
-                let result = crate::video_js::loadAppState::<Option<AppState>>().await;
-                if let Ok(Some(state)) = result {
-                    // Match the saved route path and construct the corresponding Route enum
-                    match state.route.as_str() {
-                        "/player" => {
-                            // Restore series if available
-                            if let Some(series_data) = state.series {
-                                // Reconstruct Series from saved data
-                                let series = Series {
-                                    title: series_data.title.clone(),
-                                    url: series_data.url.clone(),
-                                    thumbnail: series_data.thumbnail.clone(),
-                                };
-                                current_series.set(Some(series));
-                                router.replace(Route::Player {});
-                            } else {
-                                // No series data, fallback to Search route
-                                router.replace(Route::Search {});
-                            }
-                        }
-                        "/search" => {
-                            // Saved route is Search, navigate to it
-                            router.replace(Route::Search {});
-                        }
-                        "/" => {
-                            // Saved route is Home (default), go to Search
-                            router.replace(Route::Search {});
-                        }
-                        _ => {
-                            // Invalid route path, fallback to Search route
-                            router.replace(Route::Search {});
-                        }
-                    }
-                } else {
-                    // No saved state, go to Search route
-                    router.replace(Route::Search {});
-                }
-            });
-        }
-    });
-
-    // Return empty content while determining route
-    rsx! {}
-}
-
-// Player route component - needs to get series from context
-#[component]
-fn Player() -> Element {
-    let current_series = use_context::<Signal<Option<Series>>>();
-
-    match current_series() {
-        Some(series) => rsx! {
-            views::Player { series }
-        },
-        None => rsx! {
-            div {
-                class: "error-page",
-                style: "display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;",
-                h1 { "No series selected" }
-                Link { to: Route::Search {}, "Go to Search" }
-            }
-        },
     }
 }

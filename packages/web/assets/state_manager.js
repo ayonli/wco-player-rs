@@ -1,31 +1,15 @@
 // Application state management using localStorage
-const STATE_KEY = "wco-player-state"
+const STATE_KEY = "wco-player-state";
 /**
  * Save application state to localStorage
  */
 export function saveAppState(state) {
     try {
-        const json = JSON.stringify(state)
-        localStorage.setItem(STATE_KEY, json)
-        console.log("💾 State saved to localStorage:", {
-            route: state.route,
-            series: state.series?.title,
-            episode: state.episode?.title,
-            position: state.playback_position,
-        })
-        // Verify it was saved
-        const saved = localStorage.getItem(STATE_KEY)
-        if (saved) {
-            const parsed = JSON.parse(saved)
-            console.log("✅ Verified saved state:", {
-                route: parsed.route,
-                position: parsed.playback_position,
-            })
-        } else {
-            console.error("❌ Failed to verify saved state - localStorage.getItem returned null")
-        }
-    } catch (e) {
-        console.error("Failed to save state to localStorage:", e)
+        const json = JSON.stringify(state);
+        localStorage.setItem(STATE_KEY, json);
+    }
+    catch {
+        // Silently fail
     }
 }
 /**
@@ -33,21 +17,15 @@ export function saveAppState(state) {
  */
 export function loadAppState() {
     try {
-        const json = localStorage.getItem(STATE_KEY)
+        const json = localStorage.getItem(STATE_KEY);
         if (!json) {
-            return null
+            return null;
         }
-        const state = JSON.parse(json)
-        console.log("✅ State loaded from localStorage:", {
-            route: state.route,
-            series: state.series?.title,
-            episode: state.episode?.title,
-            position: state.playback_position,
-        })
-        return state
-    } catch (e) {
-        console.error("Failed to load state from localStorage:", e)
-        return null
+        const state = JSON.parse(json);
+        return state;
+    }
+    catch {
+        return null;
     }
 }
 /**
@@ -55,54 +33,52 @@ export function loadAppState() {
  */
 export function clearAppState() {
     try {
-        localStorage.removeItem(STATE_KEY)
-        console.log("🧹 State cleared from localStorage")
-    } catch (e) {
-        console.error("Failed to clear state from localStorage:", e)
+        localStorage.removeItem(STATE_KEY);
+    }
+    catch {
+        // Silently fail
     }
 }
 /**
- * Update only the playback position in saved state
+ * Set the playback position in saved state
  */
-export function updatePlaybackPosition(position) {
+export function setPlaybackPosition(position) {
     // Always ensure we have a state object, even if it doesn't exist yet
-    const state = loadAppState() || { route: location.pathname || "/" }
+    const state = loadAppState() || { route: location.pathname || "/" };
     if (position !== null && position > 0) {
-        state.playback_position = position
-        console.log(`💾 Updating playback position: ${position.toFixed(2)}s`)
-    } else {
-        delete state.playback_position
-        console.log("🧹 Clearing playback position")
+        state.playback_position = position;
     }
-    saveAppState(state)
+    else {
+        delete state.playback_position;
+    }
+    saveAppState(state);
 }
 /**
- * Update route in saved state
+ * Set the last route in saved state
  */
-export function updateRoute(route) {
-    const state = loadAppState() || { route: "/" }
-    state.route = route
-    saveAppState(state)
+export function setLastRoute(route) {
+    const state = loadAppState() || { route: "/" };
+    state.route = route;
+    saveAppState(state);
 }
 /**
- * Update series and episode in saved state
+ * Set series and episode in saved state
  * This also clears playback position when series/episode changes
  */
-export function updateSeriesAndEpisode(series, episode) {
-    const state = loadAppState() || { route: "/player" }
-    const oldEpisodeUrl = state.episode?.url
+export function setSeriesAndEpisode(series, episode) {
+    const state = loadAppState() || { route: "/player" };
+    const oldEpisodeUrl = state.episode?.url;
     // Clear playback position if episode changed
     if (oldEpisodeUrl && episode?.url && oldEpisodeUrl !== episode.url) {
-        console.log("🔄 Episode changed, clearing playback position")
-        delete state.playback_position
-    } else if (!oldEpisodeUrl && episode?.url) {
-        // New episode selected, clear any existing position
-        console.log("🆕 New episode selected, clearing playback position")
-        delete state.playback_position
+        delete state.playback_position;
     }
-    state.series = series
-    state.episode = episode
-    saveAppState(state)
+    else if (!oldEpisodeUrl && episode?.url) {
+        // New episode selected, clear any existing position
+        delete state.playback_position;
+    }
+    state.series = series;
+    state.episode = episode;
+    saveAppState(state);
 }
 /**
  * Restore route from localStorage on app startup
@@ -112,5 +88,47 @@ export function updateSeriesAndEpisode(series, episode) {
 export function restoreRouteFromState() {
     // This function is kept for backwards compatibility but does nothing
     // Route restoration is now handled in Rust in the Search component
-    console.log("restoreRouteFromState is deprecated - route restoration handled in Rust")
+}
+const SETTINGS_KEY = "wco-player-settings";
+/**
+ * Load settings from localStorage
+ */
+export function loadSettings() {
+    try {
+        const json = localStorage.getItem(SETTINGS_KEY);
+        if (!json) {
+            return {};
+        }
+        return JSON.parse(json);
+    }
+    catch {
+        return {};
+    }
+}
+/**
+ * Save settings to localStorage
+ */
+export function saveSettings(settings) {
+    try {
+        const json = JSON.stringify(settings);
+        localStorage.setItem(SETTINGS_KEY, json);
+    }
+    catch {
+        // Silently fail
+    }
+}
+/**
+ * Set a specific setting value
+ */
+export function setSetting(key, value) {
+    const settings = loadSettings();
+    settings[key] = value;
+    saveSettings(settings);
+}
+/**
+ * Get a specific setting value
+ */
+export function getSetting(key, defaultValue) {
+    const settings = loadSettings();
+    return settings[key] ?? defaultValue;
 }

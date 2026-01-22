@@ -1,5 +1,7 @@
 {
     "scripts": {
+        "dev:web": "dx serve --package web --platform web",
+        "dev:desktop": "dx serve --package desktop --platform desktop",
         "sanitize": "npm run sanitize:rs && npm run sanitize:ts",
         "sanitize:rs": "cargo clippy --fix && cargo fmt",
         "sanitize:ts": "deno lint --fix  && deno fmt"

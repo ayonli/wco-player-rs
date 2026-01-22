@@ -1,13 +1,23 @@
 [package]
 name = "web"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 build = "build.rs"
 
 [dependencies]
 dioxus = { workspace = true, features = ["router", "fullstack"] }
+api = { workspace = true }
 ui = { workspace = true }
+wco = { workspace = true }
+tokio = { version = "1", features = ["full"], optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["json"], default-features = false }
+urlencoding = "2"
 dioxus-use-js = "0.4"
+async-trait = "0.1"
+axum = { version = "0.8", optional = true }
+getrandom = { version = "0.3", features = ["wasm_js"] }
 
 [build-dependencies]
 build-utils = { path = "../../build-utils" }
@@ -15,4 +25,11 @@ build-utils = { path = "../../build-utils" }
 [features]
 default = []
 web = ["dioxus/web"]
-server = ["dioxus/server", "ui/server"]
+desktop = ["dioxus/desktop", "dep:tokio", "dep:axum", "reqwest/stream"]
+server = [
+    "dioxus/server",
+    "api/server",
+    "dep:tokio",
+    "dep:axum",
+    "reqwest/stream",
+]

@@ -12,12 +12,12 @@ pub fn SeriesCard(
     on_select: EventHandler<Series>,
 ) -> Element {
     let series_clone = series.clone();
-    
+
     rsx! {
         div {
             class: "series-card",
             onclick: move |_| on_select.call(series_clone.clone()),
-            
+
             div {
                 class: "series-thumbnail",
                 if let Some(ref thumb) = series.thumbnail {
@@ -33,7 +33,7 @@ pub fn SeriesCard(
                     }
                 }
             }
-            
+
             div {
                 class: "series-info",
                 h3 {
@@ -56,7 +56,7 @@ pub fn SeriesGrid(
     rsx! {
         div {
             class: "series-grid",
-            
+
             for series in series_list {
                 SeriesCard {
                     key: "{series.url}",

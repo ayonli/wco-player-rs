@@ -6,4 +6,11 @@ fn main() {
         eprintln!("❌ {}", e);
         panic!("TypeScript compilation failed");
     }
+
+    if let Err(e) =
+        build_utils::compile_typescript_to("../web/assets/state_manager.ts", Some("assets"))
+    {
+        eprintln!("❌ {}", e);
+        panic!("TypeScript compilation failed");
+    }
 }

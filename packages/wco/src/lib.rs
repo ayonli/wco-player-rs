@@ -38,14 +38,14 @@
 mod error;
 mod user_agent;
 
-pub mod search;
-pub mod list;
 pub mod detail;
+pub mod list;
+pub mod search;
 
 // Re-export commonly used types and functions
-pub use error::{WcoError, Result};
+pub use error::{Result, WcoError};
 pub use user_agent::UserAgent;
 
-pub use search::{Series, search_series};
-pub use list::{Episode, list_episodes};
-pub use detail::{VideoInfo, get_video_info, fetch_video, download_video};
+pub use detail::{fetch_video, get_video_info, VideoInfo};
+pub use list::{list_episodes, Episode};
+pub use search::{search_series, Series};

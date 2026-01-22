@@ -1,6 +1,5 @@
 //! Search page - entry point for finding series
 
-use crate::{api_client, ServerConfig};
 use dioxus::prelude::*;
 use ui::{SearchBar, SeriesGrid};
 use wco::Series;
@@ -8,36 +7,54 @@ use wco::Series;
 /// Search page component
 #[component]
 pub fn Search() -> Element {
-    let mut search_results = use_signal(Vec::<Series>::new);
-    let mut is_searching = use_signal(|| false);
-    let mut search_error = use_signal(|| Option::<String>::None);
-    let mut has_searched = use_signal(|| false);
-
-    // Get server config from context
-    let server_config = use_context::<ServerConfig>();
+    let search_results = use_signal(Vec::<Series>::new);
+    let is_searching = use_signal(|| false);
+    let search_error = use_signal(|| Option::<String>::None);
+    let has_searched = use_signal(|| false);
 
     // Get router and current series context
     let router = router();
     let mut current_series = use_context::<Signal<Option<Series>>>();
 
-    let handle_search = move |query: String| {
-        spawn(async move {
-            is_searching.set(true);
-            search_error.set(None);
+    let handle_search = {
+        let mut is_searching_clone = is_searching;
+        let mut search_error_clone = search_error;
+        let mut search_results_clone = search_results;
+        let mut has_searched_clone = has_searched;
+        move |query: String| {
+            spawn(async move {
+                is_searching_clone.set(true);
+                search_error_clone.set(None);
 
-            match api_client::search_series(&query, server_config.port).await {
-                Ok(results) => {
-                    search_results.set(results);
-                    has_searched.set(true);
+                let result = async {
+                    #[cfg(feature = "desktop")]
+                    {
+                        wco::search_series(&query, None).await
+                    }
+                    #[cfg(not(feature = "desktop"))]
+                    {
+                        match api::search_series(query).await {
+                            Ok(results) => Ok(results),
+                            Err(e) => Err(wco::WcoError::Other(e.to_string())),
+                        }
+                    }
                 }
-                Err(e) => {
-                    search_error.set(Some(e.to_string()));
-                    search_results.set(vec![]);
-                }
-            }
+                .await;
 
-            is_searching.set(false);
-        });
+                match result {
+                    Ok(results) => {
+                        search_results_clone.set(results);
+                        has_searched_clone.set(true);
+                    }
+                    Err(e) => {
+                        search_error_clone.set(Some(e.to_string()));
+                        search_results_clone.set(vec![]);
+                    }
+                }
+
+                is_searching_clone.set(false);
+            });
+        }
     };
 
     rsx! {
@@ -75,10 +92,12 @@ pub fn Search() -> Element {
                             // Save route to localStorage
                             spawn(async move {
                                 use crate::video_js::setLastRoute;
-                                let _: Result<(), _> = setLastRoute("/player".to_string()).await;
+                                let _: Result<(), _> = setLastRoute("/player").await;
                             });
 
-                            router.push(crate::Route::Player {});
+                            // Navigate to player route
+                            // Route is defined in web's main.rs, accessed via web::Route
+                            router.push(crate::route::Route::Player {});
                         },
                     }
                 } else {

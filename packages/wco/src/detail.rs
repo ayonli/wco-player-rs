@@ -1,8 +1,6 @@
 use crate::{error::Result, user_agent::UserAgent, WcoError};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
-use tokio::io::AsyncWriteExt;
 
 /// Video information including URLs and filename
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -311,37 +309,4 @@ pub async fn fetch_video(
 
     // Return the full Response so callers can preserve status and headers
     Ok(res)
-}
-
-/// Download video to a file
-///
-/// # Arguments
-/// * `info` - VideoInfo containing the URL and filename
-/// * `output_dir` - Optional output directory (defaults to current_dir/downloads)
-///
-/// # Returns
-/// Path to the downloaded file
-pub async fn download_video(info: &VideoInfo, output_dir: Option<&str>) -> Result<String> {
-    let res = fetch_video(&info.url, None).await?;
-
-    let output_dir = output_dir.unwrap_or("downloads");
-    tokio::fs::create_dir_all(output_dir).await?;
-
-    let decoded_filename = urlencoding::decode(&info.filename)
-        .map_err(|e| WcoError::ParseError(format!("Failed to decode filename: {}", e)))?;
-
-    let output_path = Path::new(output_dir).join(decoded_filename.as_ref());
-    let mut file = tokio::fs::File::create(&output_path).await?;
-
-    let mut stream = res.bytes_stream();
-    use futures_util::StreamExt;
-
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk?;
-        file.write_all(&chunk).await?;
-    }
-
-    file.flush().await?;
-
-    Ok(output_path.to_string_lossy().to_string())
 }
