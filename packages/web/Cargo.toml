@@ -33,3 +33,9 @@ server = [
     "dep:axum",
     "reqwest/stream",
 ]
+
+[profile.release]
+opt-level = 3
+lto = "thin"          # "thin" is much faster than "fat" LTO
+codegen-units = 16    # Increasing this speeds up builds but slightly reduces optimization
+panic = "abort"       # Reduces binary size and build time

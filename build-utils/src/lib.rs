@@ -57,7 +57,7 @@ pub fn compile_typescript_to(ts_file: &str, output_dir: Option<&str>) -> Result<
   "compilerOptions": {{
     "target": "ES2020",
     "module": "ES2020",
-    "lib": ["ES2020", "DOM"],
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "moduleResolution": "node",
     "outDir": "{}",
     "rootDir": ".",
@@ -66,7 +66,9 @@ pub fn compile_typescript_to(ts_file: &str, output_dir: Option<&str>) -> Result<
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "declaration": false,
-    "sourceMap": false
+    "sourceMap": false,
+    "noEmit": false,
+    "resolveJsonModule": true
   }},
   "include": ["{}"],
   "exclude": ["node_modules", "dist", "target"]

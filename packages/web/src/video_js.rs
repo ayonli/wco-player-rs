@@ -25,10 +25,17 @@ use_js!("assets/video_player.ts", "assets/video_player.js"::{
 // Note: state_manager.js should be compiled from state_manager.ts
 use_js!("assets/state_manager.ts", "assets/state_manager.js"::{
     loadAppState,
+    saveAppState,
     setLastRoute,
     setSeriesAndEpisode,
     loadSettings,
     saveSettings,
     setSetting,
     getSetting,
+    getUrlParams,
+    getUrlParam,
+    updateUrlParams,
+    getUrlHash,
+    updateUrlHash,
+    updateSeriesEpisodeAndPosition,
 });

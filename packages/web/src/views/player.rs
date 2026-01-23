@@ -182,13 +182,21 @@ fn PlayerRoute(
     // Load episodes when series changes
     // After loading, restore saved episode and position from localStorage
     let series_for_episodes = series.clone();
+    #[allow(unused_mut)]
     let mut selected_episode_restore = selected_episode;
+    #[allow(unused_mut)]
     let mut playback_position_restore = playback_position;
+    #[allow(unused_mut)]
     let mut video_info_restore = video_info;
+    #[allow(unused_mut)]
     let mut video_loading_restore = video_loading;
+    #[allow(unused_mut)]
     let mut video_error_restore = video_error;
+    #[allow(unused_mut)]
     let mut current_quality_restore = current_quality;
+    #[allow(unused_mut)]
     let mut episodes_restore = episodes;
+    #[allow(unused_mut)]
     let mut episodes_loading_restore = episodes_loading;
 
     use_effect(move || {
@@ -215,72 +223,134 @@ fn PlayerRoute(
                 Ok(eps) => {
                     episodes_restore.set(eps.clone());
 
-                    // After episodes are loaded, try to restore saved episode
-                    let state_result = video_js::loadAppState::<Option<AppState>>().await;
-                    if let Ok(Some(state)) = state_result
-                        && let Some(saved_episode) = state.episode
-                    {
-                        // Find matching episode in the loaded list
-                        if let Some(episode_to_restore) =
-                            eps.iter().find(|ep| ep.url == saved_episode.url)
-                        {
-                            // Set selected episode
-                            selected_episode_restore.set(Some(episode_to_restore.clone()));
+                    // Try to restore episode from URL first, then from localStorage
+                    let mut playback_position_clone = playback_position_restore;
+                    let eps_clone = eps.clone();
+                    spawn(async move {
+                        use crate::utils::parse_time;
+                        use video_js::{getUrlHash, getUrlParam};
 
-                            // Restore playback position if available
-                            if let Some(saved_position) = state.playback_position {
-                                playback_position_restore.set(Some(saved_position));
+                        // First, try to get episode_url from URL query parameters
+                        let url_episode_result = getUrlParam("episode_url").await;
+                        let episode_url_opt = if let Ok(Some(url_episode)) = url_episode_result {
+                            // Also check for playback position in URL hash
+                            let hash_result = getUrlHash().await;
+                            if let Ok(Some(hash)) = hash_result
+                                && let Some(time_seconds) = parse_time(&hash)
+                            {
+                                playback_position_clone.set(Some(time_seconds));
                             }
+                            Some(url_episode)
+                        } else {
+                            // Fallback to localStorage
+                            let state_result = video_js::loadAppState::<Option<AppState>>().await;
+                            if let Ok(Some(state)) = state_result
+                                && let Some(saved_episode) = state.episode
+                                && let Some(saved_series) = state.series
+                            {
+                                // Restore playback position from localStorage if not in URL
+                                let saved_position = if playback_position_clone().is_none() {
+                                    state.playback_position
+                                } else {
+                                    playback_position_clone()
+                                };
 
-                            // Scroll to the restored episode in the list
-                            let episode_url_for_scroll = episode_to_restore.url.clone();
-                            spawn(async move {
-                                let _ =
-                                    video_js::restorePlaybackEpisode(&episode_url_for_scroll).await;
-                            });
-
-                            // Load video info for the restored episode
-                            video_loading_restore.set(true);
-                            video_error_restore.set(None);
-
-                            let episode_url_for_info = episode_to_restore.url.clone();
-                            spawn(async move {
-                                let result = async {
-                                    #[cfg(feature = "desktop")]
-                                    {
-                                        wco::get_video_info(&episode_url_for_info, None).await
-                                    }
-                                    #[cfg(not(feature = "desktop"))]
-                                    {
-                                        match api::get_video_info(episode_url_for_info).await {
-                                            Ok(info) => Ok(info),
-                                            Err(e) => Err(wco::WcoError::Other(e.to_string())),
-                                        }
-                                    }
+                                if let Some(position) = saved_position {
+                                    playback_position_clone.set(Some(position));
                                 }
+
+                                // Update URL and localStorage using unified function
+                                use video_js::updateSeriesEpisodeAndPosition;
+                                let series_obj = serde_json::json!({
+                                    "title": saved_series.title,
+                                    "url": saved_series.url,
+                                });
+                                let episode_obj = serde_json::json!({
+                                    "title": saved_episode.title,
+                                    "url": saved_episode.url,
+                                });
+                                let _: Result<(), _> = updateSeriesEpisodeAndPosition(
+                                    series_obj,
+                                    episode_obj,
+                                    saved_position,
+                                )
                                 .await;
 
-                                match result {
-                                    Ok(info) => {
-                                        // Auto-select best available quality
-                                        let best_quality = if info.full_hd_url.is_some() {
-                                            "fhd"
-                                        } else if info.hd_url.is_some() {
-                                            "hd"
-                                        } else {
-                                            "sd"
-                                        };
-                                        current_quality_restore.set(best_quality.to_string());
-                                        video_info_restore.set(Some(info));
+                                Some(saved_episode.url)
+                            } else {
+                                None
+                            }
+                        };
+
+                        if let Some(episode_url) = episode_url_opt {
+                            // Find matching episode in the loaded list
+                            if let Some(episode_to_restore) =
+                                eps_clone.iter().find(|ep| ep.url == episode_url)
+                            {
+                                // Set selected episode
+                                selected_episode_restore.set(Some(episode_to_restore.clone()));
+
+                                // Scroll to the restored episode in the list
+                                let episode_url_for_scroll = episode_to_restore.url.clone();
+                                spawn(async move {
+                                    let _ =
+                                        video_js::restorePlaybackEpisode(&episode_url_for_scroll)
+                                            .await;
+                                });
+
+                                // Load video info for the restored episode
+                                video_loading_restore.set(true);
+                                video_error_restore.set(None);
+
+                                // Save the playback position before spawning the async task
+                                let saved_position_for_tracking = playback_position_clone();
+                                let episode_url_for_info = episode_to_restore.url.clone();
+                                spawn(async move {
+                                    let result = async {
+                                        #[cfg(feature = "desktop")]
+                                        {
+                                            wco::get_video_info(&episode_url_for_info, None).await
+                                        }
+                                        #[cfg(not(feature = "desktop"))]
+                                        {
+                                            match api::get_video_info(episode_url_for_info).await {
+                                                Ok(info) => Ok(info),
+                                                Err(e) => Err(wco::WcoError::Other(e.to_string())),
+                                            }
+                                        }
                                     }
-                                    Err(e) => {
-                                        video_error_restore.set(Some(e.to_string()));
+                                    .await;
+
+                                    match result {
+                                        Ok(info) => {
+                                            // Auto-select best available quality
+                                            let best_quality = if info.full_hd_url.is_some() {
+                                                "fhd"
+                                            } else if info.hd_url.is_some() {
+                                                "hd"
+                                            } else {
+                                                "sd"
+                                            };
+                                            current_quality_restore.set(best_quality.to_string());
+                                            video_info_restore.set(Some(info));
+
+                                            // Setup playback tracking with saved position to trigger autoplay
+                                            // setupPlaybackTracking handles waiting for video element internally
+                                            let _ = video_js::setupPlaybackTracking(
+                                                "video-player",
+                                                saved_position_for_tracking,
+                                            )
+                                            .await;
+                                        }
+                                        Err(e) => {
+                                            video_error_restore.set(Some(e.to_string()));
+                                        }
                                     }
-                                }
-                                video_loading_restore.set(false);
-                            });
+                                    video_loading_restore.set(false);
+                                });
+                            }
                         }
-                    }
+                    });
                 }
                 Err(_) => {
                     episodes_restore.set(vec![]);
@@ -316,14 +386,16 @@ fn PlayerRoute(
                 let _ = video_js::scrollToEpisode(&episode_url_for_scroll).await;
             });
 
-            // Save series and episode to localStorage
+            // Save series and episode to localStorage and update URL
+            // Clear playback position when switching episodes
             let series_title = series_for_save.title.clone();
             let series_url = series_for_save.url.clone();
             let episode_title = episode_clone.title.clone();
             let episode_url_for_save = episode_clone.url.clone();
             let episode_url_for_info = episode_url.clone();
             spawn(async move {
-                use video_js::setSeriesAndEpisode;
+                use video_js::updateSeriesEpisodeAndPosition;
+                // Clear playback position when switching episodes
                 let series_obj = serde_json::json!({
                     "title": series_title,
                     "url": series_url,
@@ -332,7 +404,12 @@ fn PlayerRoute(
                     "title": episode_title,
                     "url": episode_url_for_save,
                 });
-                let _: Result<(), _> = setSeriesAndEpisode(series_obj, episode_obj).await;
+                let _: Result<(), _> = updateSeriesEpisodeAndPosition(
+                    series_obj,
+                    episode_obj,
+                    None, // Clear playback position when switching episodes
+                )
+                .await;
             });
 
             spawn(async move {
@@ -539,10 +616,79 @@ fn PlayerRoute(
     }
 }
 
-// Player route component - needs to get series from context
+// Player route component - needs to get series from context or URL
 #[component]
 pub fn Player() -> Element {
     let current_series = use_context::<Signal<Option<Series>>>();
+    #[allow(unused_mut)]
+    let mut series_from_url = use_signal(|| Option::<Series>::None);
+    #[allow(unused_mut)]
+    let mut loading_from_url = use_signal(|| false);
+
+    // Try to load series from URL query parameters
+    use_effect(move || {
+        let mut series_from_url_clone = series_from_url;
+        let mut loading_from_url_clone = loading_from_url;
+        let mut current_series_clone = current_series;
+
+        // Check if we already have a series from context
+        if current_series_clone().is_some() {
+            return;
+        }
+
+        spawn(async move {
+            use crate::utils::parse_time;
+            use crate::video_js::loadAppState;
+            use crate::video_js::{getUrlHash, getUrlParam};
+
+            // Get series_url and episode_url from URL
+            let series_url_result = getUrlParam("series_url").await;
+            let hash_result = getUrlHash().await;
+
+            if let Ok(Some(series_url)) = series_url_result {
+                loading_from_url_clone.set(true);
+
+                // Create a basic Series object from URL
+                // We'll get the title from the episode list page later
+                let series = Series {
+                    title: "Loading...".to_string(),
+                    url: series_url,
+                    thumbnail: None,
+                };
+
+                // Set series in context so PlayerRoute can use it
+                current_series_clone.set(Some(series.clone()));
+                series_from_url_clone.set(Some(series));
+
+                // Also restore playback position from hash if available
+                if let Ok(Some(hash)) = hash_result
+                    && let Some(time_seconds) = parse_time(&hash)
+                {
+                    // Save to localStorage so PlayerRoute can restore it
+                    let state_result = loadAppState::<Option<AppState>>().await;
+                    if let Ok(Some(mut state)) = state_result {
+                        state.playback_position = Some(time_seconds);
+                        use crate::video_js::saveAppState;
+                        let _: Result<(), _> = saveAppState(state).await;
+                    }
+                }
+
+                loading_from_url_clone.set(false);
+            }
+        });
+    });
+
+    // Show loading state while loading from URL
+    if loading_from_url() {
+        return rsx! {
+            div {
+                class: "error-page",
+                style: "display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;",
+                div { class: "spinner large", "" }
+                p { "Loading..." }
+            }
+        };
+    }
 
     match current_series() {
         Some(series) => rsx! {

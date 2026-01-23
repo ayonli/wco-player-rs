@@ -1,5 +1,10 @@
 // Video player fullscreen and overlay control logic
-import { loadAppState, setPlaybackPosition } from "./state_manager"
+import {
+    loadAppState,
+    setPlaybackPosition,
+    updateSeriesEpisodeAndPosition,
+    updateUrlHash,
+} from "./state_manager"
 
 /**
  * Check if an element is fully visible within its scrollable container
@@ -636,130 +641,92 @@ function setupPlaybackTrackingForVideo(
     // Reset ended flag
     playbackEnded = false
 
-    // Set autoplay attribute via JavaScript (since Dioxus may not support it directly in RSX)
+    // Set autoplay attribute
     video.setAttribute("autoplay", "autoplay")
 
-    // Get saved position from localStorage if not provided
-    // But only if it matches the current episode
+    // Get saved position from parameter, localStorage, or URL hash
     let positionToRestore = savedPosition
     if (positionToRestore === null) {
+        // First try localStorage
         const state = loadAppState()
         if (state && state.playback_position && state.episode) {
-            // Check if the saved episode matches the current video
-            // We can't directly check the video URL, but we can check if episode URL matches
-            // For now, we'll restore if episode exists in state
-            // The episode URL should match what's in the DOM or be set by setSeriesAndEpisode
             positionToRestore = state.playback_position
+            // Update URL hash with the restored position from localStorage
+            const hours = Math.floor(positionToRestore / 3600)
+            const minutes = Math.floor((positionToRestore % 3600) / 60)
+            const secs = Math.floor(positionToRestore % 60)
+            const formatted = `${hours.toString().padStart(2, "0")}:${
+                minutes.toString().padStart(2, "0")
+            }:${secs.toString().padStart(2, "0")}`
+            updateUrlHash(formatted)
         } else if (state && state.playback_position && !state.episode) {
-            // If there's a position but no episode, clear it (stale data)
+            // Clear stale data
             setPlaybackPosition(null)
         }
+
+        // If still null, try URL hash as fallback
+        if (positionToRestore === null) {
+            const hash = globalThis.location.hash.slice(1)
+            if (hash) {
+                // Try to parse as HH:mm:ss format
+                const parts = hash.split(":")
+                if (parts.length === 3) {
+                    const hours = parseInt(parts[0], 10)
+                    const minutes = parseInt(parts[1], 10)
+                    const seconds = parseInt(parts[2], 10)
+                    if (!isNaN(hours) && !isNaN(minutes) && !isNaN(seconds)) {
+                        positionToRestore = hours * 3600 + minutes * 60 + seconds
+                    }
+                }
+            }
+        }
     }
 
-    // Restore saved position and auto-play
+    // Restore position and start playback
     if (positionToRestore !== null && positionToRestore > 0) {
-        let positionRestored = false
-
-        // Function to restore position - must wait for video to have enough data loaded
-        const restorePosition = () => {
-            // Wait for video to have enough data (readyState >= 2 means HAVE_CURRENT_DATA)
-            // Also check that we haven't already restored
-            if (!positionRestored && video.readyState >= 2 && video.duration > 0) {
+        // Wait for video metadata to be loaded before restoring position
+        const restoreAndPlay = () => {
+            if (video.readyState >= 1 && video.duration > 0) {
                 if (positionToRestore < video.duration) {
                     video.currentTime = positionToRestore
-                    positionRestored = true
-                    // Update global state so getCurrentPlaybackPosition returns correct value
                     currentPlaybackPosition = positionToRestore
-                    return true
+                }
+                // Start playback when video can play
+                if (video.paused && !video.ended) {
+                    video.play().catch(console.error)
                 }
             }
-            return false
         }
 
-        // Try to restore position immediately if video is already ready
-        if (!restorePosition()) {
-            // Wait for loadeddata event (fires when enough data is loaded to start playback)
-            video.addEventListener("loadeddata", () => {
-                if (!restorePosition()) {
-                    // If still not ready, wait a bit more and try again
-                    setTimeout(() => restorePosition(), 100)
-                    setTimeout(() => restorePosition(), 300)
-                }
-            }, { once: true })
-
-            // Also try on canplay event (fires when enough data is loaded to play)
-            video.addEventListener("canplay", () => {
-                if (!restorePosition()) {
-                    setTimeout(() => restorePosition(), 200)
-                }
-            }, { once: true })
-
-            // And on canplaythrough for maximum compatibility
-            video.addEventListener("canplaythrough", () => {
-                restorePosition()
-            }, { once: true })
+        // Restore position when metadata is loaded
+        if (video.readyState >= 1) {
+            restoreAndPlay()
+        } else {
+            video.addEventListener("loadedmetadata", restoreAndPlay, { once: true })
         }
 
-        // Auto-play after position is restored
-        const tryAutoPlay = () => {
-            if (video.readyState >= 2 && video.paused && !video.ended) {
-                video.play().catch(() => {})
-                return true
+        // Ensure playback starts when video is ready
+        video.addEventListener("canplay", () => {
+            if (video.paused && !video.ended) {
+                video.play().catch(console.error)
             }
-            return false
-        }
-
-        // Try multiple times to ensure playback starts
-        const playAfterRestore = () => {
-            if (!tryAutoPlay()) {
-                // Retry after a short delay
-                setTimeout(() => tryAutoPlay(), 100)
-                setTimeout(() => tryAutoPlay(), 500)
-            }
-        }
-
-        // Wait for canplay event before trying to play
-        video.addEventListener("canplay", playAfterRestore, { once: true })
-        // Also try on loadeddata as fallback
-        video.addEventListener("loadeddata", () => {
-            setTimeout(() => playAfterRestore(), 100)
         }, { once: true })
-        // And on canplaythrough for maximum compatibility
-        video.addEventListener("canplaythrough", playAfterRestore, { once: true })
     } else {
         // Auto-play if no saved position
-        const tryAutoPlay = () => {
-            if (video.readyState >= 2 && video.paused && !video.ended) {
-                video.play().catch(() => {})
-                return true
-            }
-            return false
-        }
-
-        // Try multiple times to ensure playback starts
-        const playNewVideo = () => {
-            if (!tryAutoPlay()) {
-                // Retry after delays
-                setTimeout(() => tryAutoPlay(), 100)
-                setTimeout(() => tryAutoPlay(), 500)
+        const startPlayback = () => {
+            if (video.paused && !video.ended) {
+                video.play().catch(console.error)
             }
         }
 
-        // Try immediately if video is already ready
-        if (!tryAutoPlay()) {
-            // Wait for canplay event
-            video.addEventListener("canplay", playNewVideo, { once: true })
-            // Also try on loadeddata as fallback
-            video.addEventListener("loadeddata", playNewVideo, { once: true })
-            // And on canplaythrough for maximum compatibility
-            video.addEventListener("canplaythrough", playNewVideo, { once: true })
+        if (video.readyState >= 1) {
+            startPlayback()
         } else {
-            // If already playing, also retry after delay to ensure it continues
-            setTimeout(() => tryAutoPlay(), 200)
+            video.addEventListener("canplay", startPlayback, { once: true })
         }
     }
 
-    // Track playback progress every 2 seconds and save to localStorage
+    // Track playback progress every 2 seconds
     lastSavedPosition = 0
 
     // Clear any existing interval first
@@ -778,30 +745,35 @@ function setupPlaybackTrackingForVideo(
             return
         }
 
-        const readyState = video.readyState
-        const isPaused = video.paused
-        const isEnded = video.ended
-        const currentTime = video.currentTime
-
-        if (readyState >= 2 && !isPaused && !isEnded) {
-            // Update global state
+        if (video.readyState >= 1 && !video.paused && !video.ended) {
+            const currentTime = video.currentTime
             currentPlaybackPosition = currentTime
 
             // Only update if position changed significantly (> 1 second)
             if (Math.abs(currentTime - lastSavedPosition) > 1) {
                 lastSavedPosition = currentTime
-                // Save to localStorage
-                setPlaybackPosition(currentTime)
+                // Update both localStorage and URL using unified function
+                const state = loadAppState()
+                updateSeriesEpisodeAndPosition(
+                    state?.series || null,
+                    state?.episode || null,
+                    currentTime,
+                )
             }
-        } else if (isEnded) {
+        } else if (video.ended) {
             currentPlaybackPosition = null
             playbackEnded = true
-            // Clear position when video ends
-            setPlaybackPosition(null)
+            // Clear playback position using unified function
+            const state = loadAppState()
+            updateSeriesEpisodeAndPosition(
+                state?.series || null,
+                state?.episode || null,
+                null,
+            )
         }
     }, 2000)
 
-    // Clear position when video ends
+    // Handle video end
     video.addEventListener("ended", () => {
         if (playbackProgressInterval) {
             clearInterval(playbackProgressInterval)
@@ -809,18 +781,19 @@ function setupPlaybackTrackingForVideo(
         }
         currentPlaybackPosition = null
         playbackEnded = true
-        // Clear position in localStorage
-        setPlaybackPosition(null)
-        // Check if auto-play next is enabled
-        const autoPlayNext = video.dataset.autoPlayNext === "true"
-        if (autoPlayNext) {
+        // Clear playback position using unified function
+        const state = loadAppState()
+        updateSeriesEpisodeAndPosition(
+            state?.series || null,
+            state?.episode || null,
+            null,
+        )
+
+        // Auto-play next episode if enabled
+        if (video.dataset.autoPlayNext === "true") {
             playNextEpisode()
         }
     }, { once: true })
-
-    // Note: We don't clear interval on loadstart anymore
-    // because loadstart fires when video src changes, which would stop tracking
-    // The interval will be cleared when setupPlaybackTracking is called again for a new video
 }
 
 /**

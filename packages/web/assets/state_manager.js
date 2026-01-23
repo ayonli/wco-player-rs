@@ -132,3 +132,104 @@ export function getSetting(key, defaultValue) {
     const settings = loadSettings();
     return settings[key] ?? defaultValue;
 }
+/**
+ * URL parameter management for player page
+ */
+/**
+ * Get URL query parameters
+ */
+export function getUrlParams() {
+    const params = {};
+    const urlParams = new URLSearchParams(globalThis.location.search);
+    for (const [key, value] of urlParams.entries()) {
+        params[key] = value;
+    }
+    return params;
+}
+/**
+ * Get a specific URL query parameter
+ */
+export function getUrlParam(key) {
+    const urlParams = new URLSearchParams(globalThis.location.search);
+    return urlParams.get(key);
+}
+/**
+ * Update URL query parameters without reloading the page
+ */
+export function updateUrlParams(params) {
+    const url = new URL(globalThis.location.href);
+    for (const [key, value] of Object.entries(params)) {
+        if (value === null || value === "") {
+            url.searchParams.delete(key);
+        }
+        else {
+            url.searchParams.set(key, value);
+        }
+    }
+    globalThis.history.replaceState({}, "", url.toString());
+}
+/**
+ * Get URL hash (without the #)
+ */
+export function getUrlHash() {
+    const hash = globalThis.location.hash;
+    return hash ? hash.slice(1) : null;
+}
+/**
+ * Update URL hash without reloading the page
+ */
+export function updateUrlHash(hash) {
+    const url = new URL(globalThis.location.href);
+    if (hash === null || hash === "") {
+        url.hash = "";
+    }
+    else {
+        url.hash = hash;
+    }
+    globalThis.history.replaceState({}, "", url.toString());
+}
+/**
+ * Format seconds to HH:mm:ss format
+ */
+function formatTime(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+}
+/**
+ * Update series, episode, and playback position in both URL and localStorage
+ * This ensures they stay in sync
+ */
+export function updateSeriesEpisodeAndPosition(series, episode, playbackPosition) {
+    // Update localStorage (convert null to undefined for compatibility)
+    setSeriesAndEpisode(series ?? undefined, episode ?? undefined);
+    // Update playback position in localStorage
+    if (playbackPosition !== null && playbackPosition > 0) {
+        setPlaybackPosition(playbackPosition);
+    }
+    else {
+        setPlaybackPosition(null);
+    }
+    // Update URL query parameters
+    if (series && episode) {
+        updateUrlParams({
+            series_url: series.url,
+            episode_url: episode.url,
+        });
+    }
+    else {
+        // Clear URL params if no series/episode
+        updateUrlParams({
+            series_url: null,
+            episode_url: null,
+        });
+    }
+    // Update URL hash with playback position (or clear it if null)
+    if (playbackPosition !== null && playbackPosition > 0) {
+        updateUrlHash(formatTime(playbackPosition));
+    }
+    else {
+        updateUrlHash(null);
+    }
+}
