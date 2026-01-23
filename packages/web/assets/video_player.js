@@ -1,4 +1,4 @@
-import { loadAppState, saveAppState, setSetting, setUrlHash, setUrlParams, } from "./state_manager";
+import { getSetting, loadAppState, saveAppState, setSetting, setUrlHash, setUrlParams, } from "./state_manager";
 function setSeriesAndEpisode(series, episode) {
     const state = loadAppState() || { route: "/player" };
     const oldEpisodeUrl = state.episode?.url;
@@ -628,7 +628,8 @@ function setupPlaybackTrackingForVideo(video, savedPosition) {
             savePlayerState(state.series, state.episode, null);
         }
         // Auto-play next episode if enabled
-        if (video.dataset.autoPlayNext === "true") {
+        const autoPlayNext = getSetting("auto_play_next", false);
+        if (autoPlayNext) {
             playNextEpisode();
         }
     }, { once: true });
@@ -662,8 +663,4 @@ function playNextEpisode() {
  */
 export function setAutoPlayNext(enabled) {
     setSetting("auto_play_next", enabled);
-    const video = document.querySelector("video.video-element");
-    if (video) {
-        video.dataset.autoPlayNext = enabled ? "true" : "false";
-    }
 }

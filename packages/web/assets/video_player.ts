@@ -1,5 +1,6 @@
 import {
     type Episode,
+    getSetting,
     loadAppState,
     saveAppState,
     type Series,
@@ -732,7 +733,8 @@ function setupPlaybackTrackingForVideo(
         }
 
         // Auto-play next episode if enabled
-        if (video.dataset.autoPlayNext === "true") {
+        const autoPlayNext = getSetting("auto_play_next", false)
+        if (autoPlayNext) {
             playNextEpisode()
         }
     }, { once: true })
@@ -771,9 +773,4 @@ function playNextEpisode(): void {
  */
 export function setAutoPlayNext(enabled: boolean): void {
     setSetting("auto_play_next", enabled)
-
-    const video = document.querySelector("video.video-element") as HTMLVideoElement | null
-    if (video) {
-        video.dataset.autoPlayNext = enabled ? "true" : "false"
-    }
 }
