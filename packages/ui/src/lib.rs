@@ -1,11 +1,5 @@
 //! This crate contains all shared UI for the workspace.
 
-mod hero;
-pub use hero::Hero;
-
-mod navbar;
-pub use navbar::Navbar;
-
 // Player components
 mod search_bar;
 pub use search_bar::SearchBar;
@@ -16,6 +10,9 @@ pub use series_card::{SeriesCard, SeriesGrid};
 mod episode_list;
 pub use episode_list::{EpisodeItem, EpisodeList};
 
+mod series_description;
+pub use series_description::SeriesDescription;
+
 mod video_player;
 pub use video_player::VideoPlayer;
 
@@ -24,6 +21,3 @@ pub use components::select::*;
 
 mod types;
 pub use types::AppState;
-
-mod api_trait;
-pub use api_trait::{ApiClient, ApiClientContext};

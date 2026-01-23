@@ -3328,9 +3328,24 @@ dependencies = [
 name = "mobile"
 version = "0.1.0"
 dependencies = [
+ "api",
+ "async-trait",
+ "axum",
  "build-utils",
+ "desktop",
  "dioxus",
+ "dioxus-primitives",
+ "dioxus-use-js",
+ "directories",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower-http",
  "ui",
+ "urlencoding",
+ "wco",
+ "web",
 ]
 
 [[package]]
@@ -6070,6 +6085,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "serde_qs",
  "tokio",
  "ui",
  "urlencoding",

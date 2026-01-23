@@ -18,6 +18,7 @@ dioxus-use-js = "0.4"
 async-trait = "0.1"
 axum = { version = "0.8", optional = true }
 getrandom = { version = "0.3", features = ["wasm_js"] }
+serde_qs = "0.15.0"
 
 [build-dependencies]
 build-utils = { path = "../../build-utils" }

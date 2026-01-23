@@ -12,10 +12,10 @@ pub async fn search_series(keyword: String) -> Result<Vec<wco::Series>, ServerFn
     }
 }
 
-#[post("/api/episodes")]
-pub async fn list_episodes(series_url: String) -> Result<Vec<wco::Episode>, ServerFnError> {
-    match wco::list_episodes(&series_url).await {
-        Ok(episodes) => Ok(episodes),
+#[post("/api/series_detail")]
+pub async fn get_series_detail(series_url: String) -> Result<wco::SeriesDetail, ServerFnError> {
+    match wco::get_series_detail(&series_url).await {
+        Ok(detail) => Ok(detail),
         Err(e) => Err(ServerFnError::ServerError {
             message: e.to_string(),
             code: 500,

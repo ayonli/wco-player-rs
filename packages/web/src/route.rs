@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::views::{Home, Player, Search};
+use crate::views::{Home, Player, PlayerQuery, Search};
 
 /// Route definitions (shared with desktop)
 #[derive(Debug, Clone, Routable, PartialEq)]
@@ -10,6 +10,6 @@ pub enum Route {
     Home {},
     #[route("/search")]
     Search {},
-    #[route("/player")]
-    Player {},
+    #[route("/player?:..query")]
+    Player { query: PlayerQuery },
 }

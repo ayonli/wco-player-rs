@@ -1,12 +1,27 @@
 [package]
 name = "mobile"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 build = "build.rs"
 
 [dependencies]
-dioxus = { workspace = true, features = ["router", "fullstack"] }
+dioxus = { workspace = true, features = ["router", "desktop"] }
+desktop = { workspace = true }
+api = { workspace = true }
 ui = { workspace = true }
+web = { workspace = true, features = ["desktop"] }
+wco = { workspace = true }
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+tower-http = { version = "0.6", features = ["cors"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["stream", "json"] }
+urlencoding = "2"
+dioxus-use-js = "0.4"
+async-trait = "0.1"
+dioxus-primitives = { git = "https://github.com/DioxusLabs/components", version = "0.0.1", default-features = false }
+directories = "5"
 
 [build-dependencies]
 build-utils = { path = "../../build-utils" }

@@ -1,7 +1,8 @@
 //! Search page - entry point for finding series
 
+use crate::views::PlayerQuery;
 use dioxus::prelude::*;
-use ui::{SearchBar, SeriesGrid};
+use ui::{AppState, SearchBar, SeriesGrid};
 use wco::Series;
 
 /// Search page component
@@ -12,9 +13,8 @@ pub fn Search() -> Element {
     let search_error = use_signal(|| Option::<String>::None);
     let has_searched = use_signal(|| false);
 
-    // Get router and current series context
+    // Get router
     let router = router();
-    let mut current_series = use_context::<Signal<Option<Series>>>();
 
     let handle_search = {
         let mut is_searching_clone = is_searching;
@@ -86,18 +86,43 @@ pub fn Search() -> Element {
                     SeriesGrid {
                         series_list: search_results(),
                         on_select: move |s: Series| {
-                            // Set series in context and navigate to player
-                            current_series.set(Some(s.clone()));
-
+                            let series_url = s.url.clone();
                             // Save route to localStorage
                             spawn(async move {
-                                use crate::video_js::setLastRoute;
+                                use crate::video_js::{setLastRoute, saveAppState};
+
                                 let _: Result<(), _> = setLastRoute("/player").await;
+
+                                // Save series to localStorage
+                                let state_result = crate::video_js::loadAppState::<Option<AppState>>().await;
+                                let mut state = if let Ok(Some(s)) = state_result {
+                                    s
+                                } else {
+                                    AppState {
+                                        route: "/player".to_string(),
+                                        series: None,
+                                        episode: None,
+                                        playback_position: None,
+                                    }
+                                };
+                                state.series = Some(Series {
+                                    title: s.title.clone(),
+                                    url: s.url.clone(),
+                                    thumbnail: s.thumbnail.clone(),
+                                });
+                                state.route = "/player".to_string();
+                                let _: Result<(), _> = saveAppState(state).await;
                             });
 
-                            // Navigate to player route
-                            // Route is defined in web's main.rs, accessed via web::Route
-                            router.push(crate::route::Route::Player {});
+                            // Navigate to player route with query parameter
+                            let query = PlayerQuery {
+                                series_url,
+                                episode_url: None,
+                            };
+                            router
+                                .push(crate::route::Route::Player {
+                                    query,
+                                });
                         },
                     }
                 } else {

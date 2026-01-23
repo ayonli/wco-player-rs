@@ -287,6 +287,21 @@ body {
     overflow: hidden;
 }
 
+/* Responsive: allow scrolling when in column layout */
+@media (max-width: 768px) {
+    .player-page {
+        height: auto;
+        min-height: 100vh;
+        overflow-y: auto;
+    }
+
+    .player-content {
+        flex-direction: column;
+        overflow: visible;
+        flex: none;
+    }
+}
+
 /* ===== Episode List ===== */
 .episode-sidebar-wrapper {
     width: 320px;
@@ -298,12 +313,152 @@ body {
     overflow: hidden;
 }
 
+/* ===== Series Description ===== */
+.series-description-section {
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-color);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    max-height: 50%;
+    min-height: 0;
+}
+
+.series-description-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--transition);
+}
+
+.series-description-header:hover {
+    background: var(--bg-secondary);
+}
+
+.series-description-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-color);
+}
+
+.description-toggle {
+    background: none;
+    border: none;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition), background var(--transition);
+}
+
+.description-toggle:hover {
+    color: var(--text-color);
+    background: var(--bg-secondary);
+}
+
+.series-description-content {
+    padding: 0 20px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    font-size: 14px;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+    flex: 1;
+    min-height: 0;
+}
+
+.series-description-content.expanded {
+    padding-bottom: 16px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.series-description-content.collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    flex: 0;
+}
+
+.series-description-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.series-thumbnail-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.series-thumbnail-img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    object-fit: contain;
+}
+
+.series-description-text {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    font-size: 14px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.series-tags {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+}
+
+.series-tags-header {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 10px;
+}
+
+.series-tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.series-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--primary-color);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    transition: all var(--transition);
+}
+
+.series-tag:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
 .episode-list {
     width: 100%;
     background: var(--bg-color);
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
 }
 
@@ -500,19 +655,27 @@ body {
         gap: 16px;
     }
 
-    .player-content {
-        flex-direction: column;
-    }
-
     .episode-sidebar-wrapper {
         width: 100%;
         border-right: none;
         border-bottom: 1px solid var(--border-color);
+        height: auto;
+        max-height: none;
     }
 
     .episode-list {
         width: 100%;
-        max-height: 40vh;
+        max-height: 320px;
+        overflow-y: auto;
+    }
+
+    .video-player-container {
+        position: static;
+        flex: none;
+    }
+
+    .video-player-area {
+        position: static;
     }
 }
 
@@ -553,6 +716,11 @@ body {
 
 .player-page.fullscreen-mode .episode-sidebar-wrapper.fullscreen-overlay {
     display: block !important;
+}
+
+/* Hide description section in fullscreen mode */
+.player-page.fullscreen-mode .series-description-section {
+    display: none !important;
 }
 
 .player-page.fullscreen-mode .video-player-container {

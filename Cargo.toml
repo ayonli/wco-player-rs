@@ -18,3 +18,4 @@ ui = { path = "packages/ui" }
 api = { path = "packages/api" }
 wco = { path = "packages/wco" }
 web = { path = "packages/web" }
+desktop = { path = "packages/desktop" }

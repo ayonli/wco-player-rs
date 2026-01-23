@@ -1,13 +1,13 @@
 use dioxus::prelude::*;
 use ui::AppState;
-use wco::Series;
+
+use crate::views::PlayerQuery;
 
 // Home route component (default route, handles route restoration)
 #[component]
 pub fn Home() -> Element {
     // Route restoration on app startup
     let router = router();
-    let mut current_series = use_context::<Signal<Option<Series>>>();
     let mut initialized = use_signal(|| false);
 
     use_effect(move || {
@@ -20,20 +20,16 @@ pub fn Home() -> Element {
                     // Match the saved route path and construct the corresponding Route enum
                     match state.route.as_str() {
                         "/player" => {
-                            // Restore series if available
-                            if let Some(series_data) = state.series {
-                                // Reconstruct Series from saved data
-                                let series = Series {
-                                    title: series_data.title.clone(),
-                                    url: series_data.url.clone(),
-                                    thumbnail: series_data.thumbnail.clone(),
-                                };
-                                current_series.set(Some(series));
-                                router.replace(crate::route::Route::Player {});
-                            } else {
-                                // No series data, fallback to Search route
-                                router.replace(crate::route::Route::Search {});
-                            }
+                            // Build PlayerQuery from saved state
+                            let query = PlayerQuery {
+                                series_url: state
+                                    .series
+                                    .as_ref()
+                                    .map(|s| s.url.clone())
+                                    .unwrap_or_default(),
+                                episode_url: state.episode.as_ref().map(|e| e.url.clone()),
+                            };
+                            router.replace(crate::route::Route::Player { query });
                         }
                         "/search" => {
                             // Saved route is Search, navigate to it
