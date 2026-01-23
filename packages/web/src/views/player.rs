@@ -109,30 +109,37 @@ impl fmt::Display for PlayerQuery {
 
 #[component]
 pub fn Player(query: PlayerQuery) -> Element {
-    let playback_position = use_signal(|| 0.0);
+    let playback_position = use_signal(|| Option::<f64>::None);
 
     // Get playback position from URL hash (priority) or localStorage
     use_effect(move || {
-        let mut playback_position_clone = playback_position;
-        spawn(async move {
-            use crate::utils::parse_time;
-            use video_js::{getUrlHash, loadAppState};
+        let current = playback_position();
 
-            // First try URL hash
-            if let Ok(Some(hash)) = getUrlHash().await
-                && let Some(time_seconds) = parse_time(&hash)
-            {
-                playback_position_clone.set(time_seconds);
-                return;
-            }
+        if current.is_none() {
+            let mut playback_position_clone = playback_position;
+            spawn(async move {
+                use crate::utils::parse_time;
+                use video_js::{getUrlHash, loadAppState};
 
-            // Fallback to localStorage
-            if let Ok(Some(state)) = loadAppState::<Option<AppState>>().await
-                && let Some(position) = state.playback_position
-            {
-                playback_position_clone.set(position);
-            }
-        });
+                // First try URL hash
+                if let Ok(Some(hash)) = getUrlHash().await
+                    && let Some(time_seconds) = parse_time(&hash)
+                {
+                    playback_position_clone.set(Some(time_seconds));
+                    return;
+                }
+
+                // Then try localStorage
+                if let Ok(Some(state)) = loadAppState::<Option<AppState>>().await
+                    && let Some(position) = state.playback_position
+                {
+                    playback_position_clone.set(Some(position));
+                    return;
+                }
+
+                playback_position_clone.set(Some(0.0));
+            });
+        }
     });
 
     // series_url is always provided via query parameter from route
@@ -147,11 +154,24 @@ pub fn Player(query: PlayerQuery) -> Element {
         };
     }
 
+    // Wait for playback position to be loaded before rendering PlayerPage
+    let position = playback_position();
+    if position.is_none() {
+        return rsx! {
+            div {
+                class: "loading-page",
+                style: "display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;",
+                div { class: "spinner large", "" }
+                p { "Loading..." }
+            }
+        };
+    }
+
     rsx! {
         PlayerPage {
             series_url: query.series_url.clone(),
             episode_url: query.episode_url.clone(),
-            playback_position: playback_position(),
+            playback_position: position.unwrap_or(0.0),
         }
     }
 }
@@ -461,7 +481,7 @@ fn use_series_initialization(params: SeriesInitializationParams) {
                                     "url": episode_url_for_save,
                                 });
                                 let _: Result<(), _> =
-                                    savePlayerState(series_obj, episode_obj, Option::<f64>::None)
+                                    savePlayerState(series_obj, episode_obj, initial_position)
                                         .await;
                             });
 
