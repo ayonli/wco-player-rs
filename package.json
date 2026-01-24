@@ -3,11 +3,11 @@
         "dev:web": "dx serve --package web --platform web",
         "dev:desktop": "dx serve --package desktop --platform desktop",
         "dev:ios": "dx serve --package mobile --platform ios",
-        "dev:android": "dx serve --package mobile --platform android --target armv7-linux-androideabi",
+        "dev:android": "dx serve --package mobile --platform android",
         "build:web": "dx build --package web --platform web",
         "build:desktop": "dx bundle --package desktop --platform desktop --release",
         "build:ios": "dx bundle --package mobile --platform ios",
-        "build:android": "dx bundle --package mobile --platform android --target armv7-linux-androideabi",
+        "build:android": "dx bundle --package mobile --platform android",
         "sanitize": "npm run sanitize:rs && npm run sanitize:ts",
         "sanitize:rs": "cargo clippy --fix && cargo fmt",
         "sanitize:ts": "deno lint --fix  && deno fmt"

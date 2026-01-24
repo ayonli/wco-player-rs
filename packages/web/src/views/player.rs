@@ -716,9 +716,12 @@ fn use_fullscreen_change_tracking() {
             spawn(async move {
                 let mut eval = document::eval(
                     r#"
-                    document.addEventListener('fullscreenchange', () => {
-                        dioxus.send(document.fullscreenElement !== null);
-                    });
+                    (async () => {
+                        while (true) {
+                            await new Promise(resolve => setTimeout(resolve, 200));
+                            dioxus.send(window.matchMedia('(display-mode: fullscreen)').matches);
+                        }
+                    })();
                 "#,
                 );
 
