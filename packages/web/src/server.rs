@@ -1,7 +1,7 @@
+use crate::streaming::streaming_video;
 use axum::{Router, routing::get};
 use tokio::sync::oneshot;
 use tower_http::cors::{Any, CorsLayer};
-use web::streaming_video;
 
 /// Build the API router with all routes
 fn build_router() -> Router {

@@ -1,5 +1,4 @@
-use desktop::start_video_server;
-use web::ServerPort;
+use web::{ServerPort, start_video_server};
 
 fn main() {
     use dioxus::desktop::tao::dpi::LogicalSize;

@@ -28,7 +28,7 @@ fn get_quality_url(info: &VideoInfo, quality: &str) -> String {
 
 #[allow(unused_variables)]
 fn build_video_url(video_url: &str, server_port: u16) -> String {
-    #[cfg(feature = "desktop")]
+    #[cfg(any(feature = "desktop", feature = "mobile"))]
     {
         format!(
             "http://127.0.0.1:{}/streaming?url={}",
@@ -36,7 +36,7 @@ fn build_video_url(video_url: &str, server_port: u16) -> String {
             urlencoding::encode(video_url)
         )
     }
-    #[cfg(not(feature = "desktop"))]
+    #[cfg(not(any(feature = "desktop", feature = "mobile")))]
     {
         format!("/streaming?url={}", urlencoding::encode(video_url))
     }
@@ -44,13 +44,13 @@ fn build_video_url(video_url: &str, server_port: u16) -> String {
 
 /// Load series detail (including episodes)
 async fn load_series_detail(series_url: &str) -> Result<SeriesDetail, String> {
-    #[cfg(feature = "desktop")]
+    #[cfg(any(feature = "desktop", feature = "mobile"))]
     {
         wco::get_series_detail(series_url)
             .await
             .map_err(|e| e.to_string())
     }
-    #[cfg(not(feature = "desktop"))]
+    #[cfg(not(any(feature = "desktop", feature = "mobile")))]
     {
         api::get_series_detail(series_url.to_string())
             .await
@@ -60,13 +60,13 @@ async fn load_series_detail(series_url: &str) -> Result<SeriesDetail, String> {
 
 /// Load video info for an episode
 async fn load_video_info(episode_url: &str) -> Result<VideoInfo, String> {
-    #[cfg(feature = "desktop")]
+    #[cfg(any(feature = "desktop", feature = "mobile"))]
     {
         wco::get_video_info(episode_url, None)
             .await
             .map_err(|e| e.to_string())
     }
-    #[cfg(not(feature = "desktop"))]
+    #[cfg(not(any(feature = "desktop", feature = "mobile")))]
     {
         api::get_video_info(episode_url.to_string())
             .await
@@ -200,11 +200,11 @@ fn PlayerPage(
     let mut description_expanded = use_signal(|| true);
 
     let ServerPort(server_port) = {
-        #[cfg(feature = "desktop")]
+        #[cfg(any(feature = "desktop", feature = "mobile"))]
         {
             use_context::<ServerPort>()
         }
-        #[cfg(not(feature = "desktop"))]
+        #[cfg(not(any(feature = "desktop", feature = "mobile")))]
         {
             ServerPort(0)
         }
@@ -663,7 +663,7 @@ fn PlayerSidebar(
 }
 
 fn use_fullscreen_change_tracking() {
-    #[allow(unused_mut)]
+    #[allow(unused_mut, unused)]
     let mut is_fullscreen = use_signal(|| false);
 
     #[cfg(feature = "desktop")]
@@ -675,31 +675,39 @@ fn use_fullscreen_change_tracking() {
         // Desktop application may be in fullscreen mode on startup
         let window_clone = window.clone();
         use_effect(move || {
-            let current_fullscreen = window_clone.fullscreen().is_some();
-            is_fullscreen.set(current_fullscreen);
-
-            spawn(async move {
-                let _ = video_js::setFullscreenMode(current_fullscreen).await;
-            });
+            if let Some(_) = window_clone.fullscreen() {
+                is_fullscreen.set(true);
+                spawn(async move {
+                    let _ = video_js::setFullscreenMode(true).await;
+                });
+            } else {
+                is_fullscreen.set(false);
+                spawn(async move {
+                    let _ = video_js::setFullscreenMode(false).await;
+                });
+            }
         });
 
-        let mut is_fullscreen_clone = is_fullscreen;
         use_wry_event_handler(move |event, _el| {
             if let WryEvent::WindowEvent { event, .. } = event
                 && let WindowEvent::Resized(_) = event
             {
-                let current_state = window.fullscreen().is_some();
-                if current_state != is_fullscreen_clone() {
-                    is_fullscreen_clone.set(current_state);
+                if let Some(_) = window.fullscreen() {
+                    is_fullscreen.set(true);
                     spawn(async move {
-                        let _ = video_js::setFullscreenMode(current_state).await;
+                        let _ = video_js::setFullscreenMode(true).await;
+                    });
+                } else {
+                    is_fullscreen.set(false);
+                    spawn(async move {
+                        let _ = video_js::setFullscreenMode(false).await;
                     });
                 }
             }
         });
     }
 
-    #[cfg(not(feature = "desktop"))]
+    #[cfg(feature = "web")]
     {
         #[allow(unused_mut)]
         let mut is_fullscreen_clone = is_fullscreen;

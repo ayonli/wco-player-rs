@@ -1,5 +1,4 @@
-use desktop::start_video_server;
-use web::ServerPort;
+use web::{ServerPort, start_video_server};
 
 fn main() {
     let server_port = start_video_server();

@@ -27,11 +27,11 @@ pub fn Search() -> Element {
                 search_error_clone.set(None);
 
                 let result = async {
-                    #[cfg(feature = "desktop")]
+                    #[cfg(any(feature = "desktop", feature = "mobile"))]
                     {
                         wco::search_series(&query, None).await
                     }
-                    #[cfg(not(feature = "desktop"))]
+                    #[cfg(not(any(feature = "desktop", feature = "mobile")))]
                     {
                         match api::search_series(query).await {
                             Ok(results) => Ok(results),

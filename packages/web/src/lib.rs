@@ -6,10 +6,13 @@ mod video_js;
 mod views;
 pub use views::App;
 
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "mobile"))]
 mod streaming;
-#[cfg(feature = "desktop")]
-pub use streaming::streaming_video;
+
+#[cfg(any(feature = "desktop", feature = "mobile"))]
+mod server;
+#[cfg(any(feature = "desktop", feature = "mobile"))]
+pub use server::start_video_server;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ServerPort(pub u16);
