@@ -7,17 +7,12 @@
         "noImplicitOverride": true,
         "noImplicitReturns": true,
         "noUnusedParameters": true,
-        "allowArbitraryExtensions": true,
-        "allowImportingTsExtensions": true,
         "module": "preserve",
         "noUncheckedSideEffectImports": true,
         "resolveJsonModule": true,
-        "declaration": true,
-        "declarationMap": true,
         "importHelpers": true,
-        "noEmit": true,
         "sourceMap": true,
-        "allowJs": true,
+        "allowJs": false,
         "checkJs": false,
         "allowSyntheticDefaultImports": true,
         "esModuleInterop": true,
@@ -25,10 +20,7 @@
         "verbatimModuleSyntax": true,
         "jsx": "react-jsx",
         "target": "esnext",
-        "skipLibCheck": true,
-        "paths": {
-            "@/*": ["./*"]
-        }
+        "skipLibCheck": true
     },
     "exclude": [
         ".*",

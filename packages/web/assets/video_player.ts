@@ -568,10 +568,6 @@ export function initVideoPlayerControls(): void {
 let playbackProgressInterval: number | null = null
 let lastSavedPosition = 0
 
-// Global state for playback tracking
-let currentPlaybackPosition: number | null = null
-let playbackEnded = false
-
 /**
  * Setup playback position tracking for a video element
  * @param videoId - ID of the video element
@@ -613,9 +609,6 @@ function setupPlaybackTrackingForVideo(
     video: HTMLVideoElement,
     savedPosition: number,
 ): void {
-    // Reset ended flag
-    playbackEnded = false
-
     // Set autoplay attribute
     video.setAttribute("autoplay", "autoplay")
 
@@ -626,7 +619,6 @@ function setupPlaybackTrackingForVideo(
             if (video.readyState >= 1 && video.duration > 0) {
                 if (savedPosition < video.duration) {
                     video.currentTime = savedPosition
-                    currentPlaybackPosition = savedPosition
                 }
                 // Start playback when video can play
                 if (video.paused && !video.ended) {
@@ -684,7 +676,6 @@ function setupPlaybackTrackingForVideo(
 
         if (video.readyState >= 1 && !video.paused && !video.ended) {
             const currentTime = video.currentTime
-            currentPlaybackPosition = currentTime
 
             // Only update if position changed significantly (> 1 second)
             if (Math.abs(currentTime - lastSavedPosition) > 1) {
@@ -700,8 +691,6 @@ function setupPlaybackTrackingForVideo(
                 }
             }
         } else if (video.ended) {
-            currentPlaybackPosition = null
-            playbackEnded = true
             // Clear playback position using unified function
             const state = loadAppState()
             if (state?.series && state?.episode) {
@@ -720,8 +709,6 @@ function setupPlaybackTrackingForVideo(
             clearInterval(playbackProgressInterval)
             playbackProgressInterval = null
         }
-        currentPlaybackPosition = null
-        playbackEnded = true
         // Clear playback position using unified function
         const state = loadAppState()
         if (state?.series && state?.episode) {

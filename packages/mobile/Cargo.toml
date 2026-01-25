@@ -8,9 +8,6 @@ build = "build.rs"
 dioxus = { workspace = true, features = ["router", "mobile"] }
 web = { workspace = true, features = ["mobile"] }
 
-[build-dependencies]
-build-utils = { path = "../../build-utils" }
-
 [features]
 default = []
 mobile = ["dioxus/mobile", "web/mobile"]

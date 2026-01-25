@@ -7,7 +7,6 @@ members = [
     "packages/mobile",
     "packages/api",
     "packages/wco",
-    "build-utils",
 ]
 
 [workspace.dependencies]

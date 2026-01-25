@@ -12,7 +12,10 @@ wco = { workspace = true }
 tokio = { version = "1", features = ["full"], optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+reqwest = { version = "0.12", features = [
+    "json",
+    "rustls-tls",
+], default-features = false }
 urlencoding = "2"
 dioxus-use-js = "0.4"
 async-trait = "0.1"
@@ -20,9 +23,6 @@ axum = { version = "0.8", optional = true }
 getrandom = { version = "0.3", features = ["wasm_js"] }
 serde_qs = "0.15.0"
 tower-http = { version = "0.6", features = ["cors"] }
-
-[build-dependencies]
-build-utils = { path = "../../build-utils" }
 
 [features]
 default = []
@@ -37,8 +37,5 @@ server = [
     "reqwest/stream",
 ]
 
-[profile.release]
-opt-level = 3
-lto = "thin"          # "thin" is much faster than "fat" LTO
-codegen-units = 16    # Increasing this speeds up builds but slightly reduces optimization
-panic = "abort"       # Reduces binary size and build time
+[package.metadata.dioxus]
+wasm-opt = false
