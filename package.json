@@ -1,20 +1,36 @@
 {
+    "name": "wco-player",
+    "version": "0.1.0",
+    "description": "A Watch Cartoon Online player.",
+    "keywords": [
+        "wco",
+        "player"
+    ],
+    "homepage": "https://github.com/ayonli/wco-player-rs#readme",
+    "bugs": {
+        "url": "https://github.com/ayonli/wco-player-rs/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ayonli/wco-player-rs.git"
+    },
+    "license": "MIT",
+    "author": "A-yon Lee <the@ayon.li>",
+    "type": "module",
+    "main": "index.js",
     "scripts": {
         "dev:web": "dx serve --package web --platform web",
         "dev:desktop": "dx serve --package desktop --platform desktop",
         "dev:ios": "dx serve --package mobile --platform ios",
         "dev:android": "dx serve --package mobile --platform android",
         "build:web": "dx build --package web --platform web --release",
+        "build:web:openwrt": "./scripts/open-wrt/build.sh",
         "build:desktop": "dx bundle --package desktop --platform desktop --release",
         "build:ios": "dx bundle --package mobile --platform ios",
         "build:android": "dx bundle --package mobile --platform android",
         "sanitize": "npm run sanitize:rs && npm run sanitize:ts",
         "sanitize:rs": "cargo clippy --fix && cargo fmt",
         "sanitize:ts": "deno lint --fix  && deno fmt"
-    },
-    "dependencies": {
-        "@tailwindcss/cli": "^4.1.18",
-        "tailwindcss": "^4.1.18"
     },
     "devDependencies": {
         "typescript": "^5.9.3"

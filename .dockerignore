@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Build artifacts
+target/
+**/target/
+*.pdb
+
+# Node modules
+node_modules/
+**/node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+!README.md
+AGENTS.md
+
+# Test files
+**/tests/
+**/*_test.rs
+**/*.test.ts
+**/*.test.tsx
+
+# Development files
+deno.json
+deno.lock
+
+# Build outputs that will be regenerated
+packages/web/dist/
+packages/desktop/dist/
+packages/mobile/dist/
