@@ -259,6 +259,18 @@ fn PlayerPage(
         let mut current_quality_clone = current_quality;
 
         move |episode: Episode| {
+            // Prevent concurrent loading: ignore if already loading
+            if video_loading_clone() {
+                return;
+            }
+
+            // Prevent loading the same episode that's already selected
+            if let Some(ref current_episode) = selected_episode_clone() {
+                if current_episode.url == episode.url {
+                    return;
+                }
+            }
+
             selected_episode_clone.set(Some(episode.clone()));
             video_info_clone.set(None);
             video_error_clone.set(None);
@@ -294,14 +306,27 @@ fn PlayerPage(
 
             // Load video info
             let episode_url_for_info = episode.url.clone();
+            let selected_episode_for_validation = selected_episode_clone;
             spawn(async move {
                 match load_video_info(&episode_url_for_info).await {
                     Ok(info) => {
-                        current_quality_clone.set(get_best_quality(&info));
-                        video_info_clone.set(Some(info));
+                        // Verify that the loaded episode is still the selected one
+                        if let Some(ref current_episode) = selected_episode_for_validation() {
+                            if current_episode.url == episode_url_for_info {
+                                // Only update if still the selected episode
+                                current_quality_clone.set(get_best_quality(&info));
+                                video_info_clone.set(Some(info));
+                            }
+                            // If episode changed, ignore this result
+                        }
                     }
                     Err(e) => {
-                        video_error_clone.set(Some(e));
+                        // Verify that the error is for the currently selected episode
+                        if let Some(ref current_episode) = selected_episode_for_validation() {
+                            if current_episode.url == episode_url_for_info {
+                                video_error_clone.set(Some(e));
+                            }
+                        }
                     }
                 }
                 video_loading_clone.set(false);
@@ -441,92 +466,166 @@ fn use_series_initialization(params: SeriesInitializationParams) {
         let episode_url = episode_url_for_loading.clone();
         let mut series_detail_clone = series_detail;
         let mut series_loading_clone = series_loading;
-        let mut selected_episode_clone = selected_episode;
-        let mut video_info_clone = video_info;
-        let mut video_loading_clone = video_loading;
-        let mut video_error_clone = video_error;
-        let mut current_quality_clone = current_quality;
-        let initial_position = playback_position;
+        let selected_episode_clone = selected_episode;
+        let video_info_clone = video_info;
+        let video_loading_clone = video_loading;
+        let video_error_clone = video_error;
+        let current_quality_clone = current_quality;
 
         spawn(async move {
             series_loading_clone.set(true);
 
-            match load_series_detail(&series_url).await {
-                Ok(detail) => {
-                    let episodes = detail.episodes.clone();
-                    let series_title = detail.title.clone();
-                    series_detail_clone.set(Some(detail));
-                    series_loading_clone.set(false);
-
-                    // If episode_url is provided from query, select and play it
-                    if let Some(ref query_episode_url) = episode_url {
-                        // Find episode from query parameter
-                        if let Some(episode) =
-                            episodes.iter().find(|ep| ep.url == *query_episode_url)
-                        {
-                            selected_episode_clone.set(Some(episode.clone()));
-
-                            // Save to localStorage (same as manual selection)
-                            let series_url_for_save = series_url.clone();
-                            let episode_title = episode.title.clone();
-                            let episode_url_for_save = episode.url.clone();
-                            spawn(async move {
-                                use video_js::savePlayerState;
-                                let series_obj = serde_json::json!({
-                                    "title": series_title,
-                                    "url": series_url_for_save,
-                                });
-                                let episode_obj = serde_json::json!({
-                                    "title": episode_title,
-                                    "url": episode_url_for_save,
-                                });
-                                let _: Result<(), _> =
-                                    savePlayerState(series_obj, episode_obj, initial_position)
-                                        .await;
-                            });
-
-                            // Scroll to episode
-                            let episode_url_for_scroll = episode.url.clone();
-                            spawn(async move {
-                                let _ =
-                                    video_js::restorePlaybackEpisode(&episode_url_for_scroll).await;
-                            });
-
-                            // Load video info
-                            video_loading_clone.set(true);
-                            video_error_clone.set(None);
-
-                            let episode_url_for_info = episode.url.clone();
-                            spawn(async move {
-                                match load_video_info(&episode_url_for_info).await {
-                                    Ok(info) => {
-                                        current_quality_clone.set(get_best_quality(&info));
-                                        video_info_clone.set(Some(info));
-
-                                        // Setup playback tracking with position
-                                        let _ = video_js::setupPlaybackTracking(
-                                            "video-player",
-                                            initial_position,
-                                        )
-                                        .await;
-                                    }
-                                    Err(e) => {
-                                        video_error_clone.set(Some(e));
-                                    }
-                                }
-                                video_loading_clone.set(false);
-                            });
-                        }
-                    }
-                    // If no episode_url in query, don't auto-select any episode
-                    // (user can manually select from the episode list)
-                }
+            let series = match load_series_detail(&series_url).await {
+                Ok(series) => series,
                 Err(_) => {
                     series_detail_clone.set(None);
                     series_loading_clone.set(false);
+                    return;
                 }
+            };
+
+            let episodes = series.episodes.clone();
+            series_detail_clone.set(Some(series.clone()));
+            series_loading_clone.set(false);
+
+            // If episode_url is provided from query, select and play it
+            if let Some(ref episode_url) = episode_url {
+                handle_query_episode(QueryEpisodeParams {
+                    episode_url,
+                    playback_position,
+                    series: &series,
+                    episodes: &episodes,
+                    selected_episode: selected_episode_clone,
+                    video_info: video_info_clone,
+                    video_loading: video_loading_clone,
+                    video_error: video_error_clone,
+                    current_quality: current_quality_clone,
+                });
             }
         });
+    });
+}
+
+/// Parameters for handling query episode selection
+struct QueryEpisodeParams<'a> {
+    episode_url: &'a str,
+    playback_position: f64,
+    series: &'a SeriesDetail,
+    episodes: &'a [Episode],
+    selected_episode: Signal<Option<Episode>>,
+    video_info: Signal<Option<VideoInfo>>,
+    video_loading: Signal<bool>,
+    video_error: Signal<Option<String>>,
+    current_quality: Signal<String>,
+}
+
+/// Handle episode selection from query parameter
+fn handle_query_episode(params: QueryEpisodeParams<'_>) {
+    let QueryEpisodeParams {
+        episode_url,
+        playback_position,
+        series,
+        episodes,
+        selected_episode,
+        video_info,
+        video_loading,
+        video_error,
+        current_quality,
+    } = params;
+
+    // Find episode from query parameter
+    let episode = match episodes.iter().find(|ep| ep.url == *episode_url) {
+        Some(ep) => ep,
+        None => return,
+    };
+
+    let mut selected_episode = selected_episode;
+    selected_episode.set(Some(episode.clone()));
+
+    // Save to localStorage (same as manual selection)
+    save_episode_state(series, episode, playback_position);
+
+    // Scroll to episode
+    scroll_to_episode(&episode.url);
+
+    // Load video info
+    load_episode_video_info(LoadVideoInfoParams {
+        episode_url: episode.url.clone(),
+        playback_position,
+        video_info,
+        video_loading,
+        video_error,
+        current_quality,
+    });
+}
+
+/// Save episode state to localStorage
+fn save_episode_state(series: &SeriesDetail, episode: &Episode, playback_position: f64) {
+    let series_title = series.title.clone();
+    let series_url = series.url.to_string();
+    let episode_title = episode.title.clone();
+    let episode_url = episode.url.clone();
+
+    spawn(async move {
+        use video_js::savePlayerState;
+        let series_obj = serde_json::json!({
+            "title": series_title,
+            "url": series_url,
+        });
+        let episode_obj = serde_json::json!({
+            "title": episode_title,
+            "url": episode_url,
+        });
+        let _: Result<(), _> = savePlayerState(series_obj, episode_obj, playback_position).await;
+    });
+}
+
+/// Scroll to the selected episode in the episode list
+fn scroll_to_episode(episode_url: &str) {
+    let episode_url = episode_url.to_string();
+    spawn(async move {
+        let _ = video_js::restorePlaybackEpisode(&episode_url).await;
+    });
+}
+
+/// Parameters for loading episode video info
+struct LoadVideoInfoParams {
+    episode_url: String,
+    playback_position: f64,
+    video_info: Signal<Option<VideoInfo>>,
+    video_loading: Signal<bool>,
+    video_error: Signal<Option<String>>,
+    current_quality: Signal<String>,
+}
+
+/// Load video info for the selected episode
+fn load_episode_video_info(params: LoadVideoInfoParams) {
+    let LoadVideoInfoParams {
+        episode_url,
+        playback_position,
+        mut video_info,
+        mut video_loading,
+        mut video_error,
+        mut current_quality,
+    } = params;
+
+    video_loading.set(true);
+    video_error.set(None);
+
+    spawn(async move {
+        match load_video_info(&episode_url).await {
+            Ok(info) => {
+                current_quality.set(get_best_quality(&info));
+                video_info.set(Some(info));
+
+                // Setup playback tracking with position
+                let _ = video_js::setupPlaybackTracking("video-player", playback_position).await;
+            }
+            Err(e) => {
+                video_error.set(Some(e));
+            }
+        }
+        video_loading.set(false);
     });
 }
 

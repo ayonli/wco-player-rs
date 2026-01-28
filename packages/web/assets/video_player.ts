@@ -106,7 +106,14 @@ function getEpisodeItemElement(episodeUrl: string): HTMLElement | null {
 }
 
 function getVideoElement(): HTMLVideoElement | null {
-    return document.querySelector("video.video-element") as HTMLVideoElement | null
+    // Get all video elements and return the last one (most recently added)
+    // This ensures we get the current video element, not an old one that's being removed
+    const videos = document.querySelectorAll("video.video-element")
+    if (videos.length === 0) {
+        return null
+    }
+    // Return the last video element (most recently added)
+    return videos[videos.length - 1] as HTMLVideoElement
 }
 
 /**
@@ -573,6 +580,9 @@ let lastSavedPosition = 0
  * @param videoId - ID of the video element
  * @param savedPosition - Position to restore (in seconds), must be a number (0 if no saved position)
  */
+// Track the currently tracked video element to prevent duplicate setup
+let currentTrackedVideo: HTMLVideoElement | null = null
+
 export function setupPlaybackTracking(
     _videoId: string,
     savedPosition: number,
@@ -583,20 +593,36 @@ export function setupPlaybackTracking(
         playbackProgressInterval = null
     }
 
+    // Clear reference to old video element
+    currentTrackedVideo = null
+
     const video = getVideoElement()
     if (video) {
-        setupPlaybackTrackingForVideo(video, savedPosition)
+        // Verify video is still in DOM and is the current video
+        if (document.contains(video)) {
+            currentTrackedVideo = video
+            setupPlaybackTrackingForVideo(video, savedPosition)
+        }
         return
     } else {
         // Wait for video element to be added to DOM
         const observer = new MutationObserver(() => {
             const video = getVideoElement()
-            if (video) {
-                observer.disconnect()
-                setupPlaybackTrackingForVideo(video, savedPosition)
+            if (video && document.contains(video)) {
+                // Only setup if this is a new video element
+                if (video !== currentTrackedVideo) {
+                    observer.disconnect()
+                    currentTrackedVideo = video
+                    setupPlaybackTrackingForVideo(video, savedPosition)
+                }
             }
         })
         observer.observe(document.body, { childList: true, subtree: true })
+
+        // Disconnect observer after 5 seconds to prevent memory leaks
+        setTimeout(() => {
+            observer.disconnect()
+        }, 5000)
     }
 }
 
@@ -609,6 +635,11 @@ function setupPlaybackTrackingForVideo(
     video: HTMLVideoElement,
     savedPosition: number,
 ): void {
+    // Verify video element is still valid and in DOM
+    if (!video || !document.contains(video)) {
+        return
+    }
+
     // Set autoplay attribute
     video.setAttribute("autoplay", "autoplay")
 
@@ -665,11 +696,15 @@ function setupPlaybackTrackingForVideo(
     }
 
     playbackProgressInterval = setInterval(() => {
-        // Check if video element still exists
-        if (!video || !document.contains(video)) {
+        // Check if video element still exists and is still the current tracked video
+        if (!video || !document.contains(video) || video !== currentTrackedVideo) {
             if (playbackProgressInterval) {
                 clearInterval(playbackProgressInterval)
                 playbackProgressInterval = null
+            }
+            // Clear reference if video is no longer valid
+            if (video !== currentTrackedVideo) {
+                currentTrackedVideo = null
             }
             return
         }
@@ -705,10 +740,18 @@ function setupPlaybackTrackingForVideo(
 
     // Handle video end
     video.addEventListener("ended", () => {
+        // Verify this is still the current tracked video before handling ended event
+        if (video !== currentTrackedVideo || !document.contains(video)) {
+            return
+        }
+
         if (playbackProgressInterval) {
             clearInterval(playbackProgressInterval)
             playbackProgressInterval = null
         }
+        // Clear reference to tracked video
+        currentTrackedVideo = null
+
         // Clear playback position using unified function
         const state = loadAppState()
         if (state?.series && state?.episode) {
