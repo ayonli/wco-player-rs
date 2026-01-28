@@ -1,6 +1,7 @@
 //! Series description component for displaying series details
 
 use dioxus::prelude::*;
+use dioxus_free_icons::{Icon, icons::ld_icons::{LdChevronDown, LdChevronRight}};
 use wco::SeriesDetail;
 
 /// Series description component
@@ -26,9 +27,17 @@ pub fn SeriesDescription(
                 h3 { class: "series-description-title", "Description" }
                 button { class: "description-toggle",
                     if description_expanded() {
-                        "▼"
+                        Icon {
+                            icon: LdChevronDown,
+                            width: Some(20),
+                            height: Some(20),
+                        }
                     } else {
-                        "▶"
+                        Icon {
+                            icon: LdChevronRight,
+                            width: Some(20),
+                            height: Some(20),
+                        }
                     }
                 }
             }

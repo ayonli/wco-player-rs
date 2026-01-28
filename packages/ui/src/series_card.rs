@@ -1,6 +1,7 @@
 //! Series card component for displaying search results
 
 use dioxus::prelude::*;
+use dioxus_free_icons::{Icon, icons::ld_icons::LdFilm};
 use wco::Series;
 
 /// Series card component - displays a single series in a card format
@@ -29,7 +30,11 @@ pub fn SeriesCard(
                 } else {
                     div {
                         class: "no-thumbnail",
-                        "🎬"
+                        Icon {
+                            icon: LdFilm,
+                            width: Some(48),
+                            height: Some(48),
+                        }
                     }
                 }
             }

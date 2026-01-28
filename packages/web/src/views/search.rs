@@ -2,6 +2,10 @@
 
 use crate::views::PlayerQuery;
 use dioxus::prelude::*;
+use dioxus_free_icons::{
+    Icon,
+    icons::ld_icons::{LdFilm, LdX},
+};
 use ui::{AppState, SearchBar, SeriesGrid};
 use wco::Series;
 
@@ -61,7 +65,15 @@ pub fn Search() -> Element {
         div { class: "search-page",
             // Header with search bar
             div { class: "search-header",
-                h1 { "🎬 WCO Player" }
+                h1 {
+                    Icon {
+                        icon: LdFilm,
+                        width: Some(24),
+                        height: Some(24),
+                        style: Some("vertical-align: middle; margin-right: 0.5rem;".to_string()),
+                    }
+                    "WCO Player"
+                }
                 SearchBar { on_search: handle_search, loading: is_searching() }
             }
             // Results area
@@ -73,7 +85,15 @@ pub fn Search() -> Element {
                 }
                 if let Some(ref error) = search_error() {
                     div { class: "no-results",
-                        p { "❌ Error: {error}" }
+                        p {
+                            Icon {
+                                icon: LdX,
+                                width: 18,
+                                height: 18,
+                                style: "vertical-align: middle; margin-right: 0.5rem;".to_string(),
+                            }
+                            "Error: {error}"
+                        }
                     }
                 } else if has_searched() && search_results.read().is_empty() {
                     div { class: "no-results",

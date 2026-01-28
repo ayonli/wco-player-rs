@@ -23,6 +23,7 @@ axum = { version = "0.8", optional = true }
 getrandom = { version = "0.3", features = ["wasm_js"] }
 serde_qs = "0.15.0"
 tower-http = { version = "0.6", features = ["cors"] }
+dioxus-free-icons = { version = "0.10.0", features = ["lucide"] }
 
 [features]
 default = []

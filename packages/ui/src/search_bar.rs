@@ -1,6 +1,7 @@
 //! Search bar component for searching series
 
 use dioxus::prelude::*;
+use dioxus_free_icons::{Icon, icons::ld_icons::LdSearch};
 
 /// Search bar component
 #[component]
@@ -38,11 +39,15 @@ pub fn SearchBar(
                 r#type: "submit",
                 class: "search-button",
                 disabled: loading || query.read().trim().is_empty(),
+                title: "Search",
                 if loading {
                     span { class: "spinner", "" }
-                    " Searching..."
                 } else {
-                    "Search"
+                    Icon {
+                        icon: LdSearch,
+                        width: Some(20),
+                        height: Some(20),
+                    }
                 }
             }
         }

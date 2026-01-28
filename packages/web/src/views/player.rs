@@ -5,6 +5,10 @@ use std::fmt;
 use crate::ServerPort;
 use crate::video_js;
 use dioxus::prelude::*;
+use dioxus_free_icons::{
+    Icon,
+    icons::ld_icons::{LdChevronsRight, LdSearch},
+};
 use serde::Deserialize;
 use serde::Serialize;
 use ui::{
@@ -663,7 +667,11 @@ fn PlayerHeader(
                         });
                         router.push(crate::route::Route::Search {});
                     },
-                    "🔍"
+                    Icon {
+                        icon: LdSearch,
+                        width: Some(20),
+                        height: Some(20),
+                    }
                 }
                 div {
                     class: "series-title",
@@ -715,7 +723,11 @@ fn PlayerHeader(
                     onclick: move |_| {
                         on_auto_play_next_toggle.call(());
                     },
-                    "⏭"
+                    Icon {
+                        icon: LdChevronsRight,
+                        width: Some(20),
+                        height: Some(20),
+                    }
                 }
             }
         }

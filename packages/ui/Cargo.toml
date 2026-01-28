@@ -9,3 +9,4 @@ serde = { version = "1", features = ["derive"] }
 wco = { workspace = true }
 dioxus-primitives = { git = "https://github.com/DioxusLabs/components", version = "0.0.1", default-features = false }
 async-trait = "0.1"
+dioxus-free-icons = { version = "0.10.0", features = ["lucide"] }

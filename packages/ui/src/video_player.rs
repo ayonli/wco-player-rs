@@ -1,6 +1,10 @@
 //! Video player component
 
 use dioxus::prelude::*;
+use dioxus_free_icons::{
+    Icon,
+    icons::ld_icons::{LdFilm, LdTriangleAlert},
+};
 
 /// Video player component
 #[component]
@@ -33,7 +37,13 @@ pub fn VideoPlayer(
                     }
                 } else if let Some(ref err) = error {
                     div { class: "video-error",
-                        p { class: "error-icon", "⚠️" }
+                        p { class: "error-icon",
+                            Icon {
+                                icon: LdTriangleAlert,
+                                width: Some(24),
+                                height: Some(24),
+                            }
+                        }
                         p { "{err}" }
                     }
                 } else if let Some(ref src) = video_src {
@@ -47,7 +57,13 @@ pub fn VideoPlayer(
                     }
                 } else {
                     div { class: "video-placeholder",
-                        p { class: "placeholder-icon", "🎬" }
+                        p { class: "placeholder-icon",
+                            Icon {
+                                icon: LdFilm,
+                                width: Some(48),
+                                height: Some(48),
+                            }
+                        }
                         p { "Select an episode to play" }
                     }
                 }
