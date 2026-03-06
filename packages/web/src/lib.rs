@@ -1,6 +1,7 @@
 //! Web package - shared views for web and desktop platforms
 
 mod route;
+mod theme;
 mod utils;
 mod video_js;
 mod views;

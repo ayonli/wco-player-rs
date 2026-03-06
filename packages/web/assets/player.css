@@ -19,6 +19,31 @@
     --transition: 0.2s ease;
 }
 
+/* Data-theme: align dx-components-theme (--dark / --light) with our preference */
+:root[data-theme="dark"] {
+    --dark: initial;
+    --light: ;
+}
+:root[data-theme="light"] {
+    --dark: ;
+    --light: initial;
+}
+
+/* Dark theme variable overrides */
+:root[data-theme="dark"] {
+    --primary-color: #3b82f6;
+    --primary-hover: #60a5fa;
+    --bg-color: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-dark: #020617;
+    --text-color: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --border-color: #334155;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+}
+
 /* ===== Base Styles ===== */
 * {
     box-sizing: border-box;
@@ -103,10 +128,44 @@ body {
     text-align: center;
 }
 
-.search-header h1 {
-    font-size: 32px;
+.search-header-top {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
     margin-bottom: 24px;
+    position: relative;
+}
+
+.search-header-top h1 {
+    margin: 0;
+    font-size: 32px;
     color: var(--text-color);
+}
+
+.search-header-top .theme-toggle {
+    position: absolute;
+    right: 0;
+}
+
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font-size: 18px;
+    color: var(--text-color);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.theme-toggle:hover {
+    background: var(--border-color);
 }
 
 .search-results {
@@ -207,6 +266,10 @@ body {
     display: flex;
     align-items: center;
     gap: 16px;
+}
+
+.player-header .theme-toggle {
+    flex-shrink: 0;
 }
 
 /* Make Select trigger height match back-button */
@@ -823,11 +886,16 @@ body {
     /* Blue color for hover */
 }
 
-/* Fix back button color in fullscreen mode */
-.player-page.fullscreen-mode .player-header.fullscreen-overlay .back-button {
+/* Fix back button and theme toggle in fullscreen mode */
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .back-button,
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .theme-toggle {
     color: rgba(255, 255, 255, 0.9);
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.2);
+}
+
+.player-page.fullscreen-mode .player-header.fullscreen-overlay .theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .player-page.fullscreen-mode .player-header.fullscreen-overlay .back-button:hover {

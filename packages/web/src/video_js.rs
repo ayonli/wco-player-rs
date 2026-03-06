@@ -12,9 +12,11 @@ use_js!("assets/state_manager.ts", "assets/state_manager.js"::{
     saveAppState,
     setLastRoute,
     getSetting,
+    setSetting,
     getUrlParam,
     getUrlHash,
     setUrlParams,
+    getSystemColorScheme,
 });
 
 // Import TypeScript functions using dioxus-use-js

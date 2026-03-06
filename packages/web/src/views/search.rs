@@ -1,6 +1,6 @@
 //! Search page - entry point for finding series
 
-use crate::views::PlayerQuery;
+use crate::views::{PlayerQuery, ThemeToggle};
 use dioxus::prelude::*;
 use dioxus_free_icons::{
     Icon,
@@ -65,14 +65,17 @@ pub fn Search() -> Element {
         div { class: "search-page",
             // Header with search bar
             div { class: "search-header",
-                h1 {
-                    Icon {
-                        icon: LdFilm,
-                        width: Some(24),
-                        height: Some(24),
-                        style: Some("vertical-align: middle; margin-right: 0.5rem;".to_string()),
+                div { class: "search-header-top",
+                    h1 {
+                        Icon {
+                            icon: LdFilm,
+                            width: Some(24),
+                            height: Some(24),
+                            style: Some("vertical-align: middle; margin-right: 0.5rem;".to_string()),
+                        }
+                        "WCO Player"
                     }
-                    "WCO Player"
+                    ThemeToggle {}
                 }
                 SearchBar { on_search: handle_search, loading: is_searching() }
             }

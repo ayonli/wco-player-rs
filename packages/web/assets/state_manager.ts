@@ -68,12 +68,14 @@ export function setLastRoute(route: string): void {
     saveAppState(state)
 }
 
+export type ThemePreference = "light" | "dark" | "system"
+
 /**
  * Settings interface for application preferences
  */
 export interface Settings {
     auto_play_next?: boolean
-    // Future settings can be added here
+    theme_preference?: ThemePreference
 }
 
 const SETTINGS_KEY = "wco-player-settings"
@@ -150,6 +152,19 @@ export function setUrlParams(params: Record<string, string | null>): void {
         }
     }
     globalThis.history.replaceState({}, "", url.toString())
+}
+
+/**
+ * Get system color scheme (for theme preference "system")
+ */
+export function getSystemColorScheme(): "light" | "dark" {
+    if (
+        typeof globalThis.matchMedia !== "undefined" &&
+        globalThis.matchMedia("(prefers-color-scheme: dark)").matches
+    ) {
+        return "dark"
+    }
+    return "light"
 }
 
 /**

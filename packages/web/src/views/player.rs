@@ -11,6 +11,7 @@ use dioxus_free_icons::{
 };
 use serde::Deserialize;
 use serde::Serialize;
+use crate::views::ThemeToggle;
 use ui::{
     AppState, EpisodeList, Select, SelectList, SelectOption, SelectTrigger, SelectValue,
     SeriesDescription, VideoPlayer,
@@ -729,6 +730,7 @@ fn PlayerHeader(
                         height: Some(20),
                     }
                 }
+                ThemeToggle {}
             }
         }
     }
