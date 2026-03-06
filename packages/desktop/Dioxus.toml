@@ -12,3 +12,21 @@ icon = [
     "./assets/icon.png",  # Linux (and fallback)
     "./assets/icon.ico",  # Windows
 ]
+
+[bundle.deb]
+# These packages will be automatically installed by the user's package manager
+depends = [
+    "gstreamer1.0-plugins-bad",
+    "gstreamer1.0-plugins-ugly",
+    "gstreamer1.0-libav",
+]
+
+[bundle.rpm]
+depends = [
+    "gstreamer1-plugins-bad-free",
+    "gstreamer1-plugins-ugly-free",
+    "gstreamer1-plugin-libav",
+]
+
+[bundle.arch]
+depends = ["gst-plugins-bad", "gst-plugins-ugly", "gst-libav"]

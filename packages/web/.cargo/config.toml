@@ -1,5 +1,7 @@
-[target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+# Use system default linker on Linux to avoid "cannot find 'ld'" when mold/lld aren't in Rust's path.
+# Uncomment below to use mold for faster linking (requires: apt install mold).
+# [target.x86_64-unknown-linux-gnu]
+# rustflags = ["-C", "link-arg=-fuse-ld=mold"]
 
 [target.aarch64-apple-darwin]
 rustflags = ["-C", "link-arg=-fuse-ld=/opt/homebrew/bin/ld64.lld"]
