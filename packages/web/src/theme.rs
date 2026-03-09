@@ -45,8 +45,9 @@ impl ResolvedTheme {
 }
 
 /// Apply resolved theme to document root (data-theme attribute).
-/// Call from use_effect when resolved theme changes. Web only.
-#[cfg(feature = "web")]
+/// Works on all WebView-capable targets (web, desktop, mobile).
+/// Excluded only on the server build which has no DOM.
+#[cfg(not(feature = "server"))]
 pub fn apply_theme_to_document(resolved: ResolvedTheme) {
     let s = resolved.as_str();
     let _ = document::eval(&format!(
@@ -55,6 +56,5 @@ pub fn apply_theme_to_document(resolved: ResolvedTheme) {
     ));
 }
 
-/// No-op on non-web (desktop may use system appearance without setting data-theme).
-#[cfg(not(feature = "web"))]
+#[cfg(feature = "server")]
 pub fn apply_theme_to_document(_resolved: ResolvedTheme) {}

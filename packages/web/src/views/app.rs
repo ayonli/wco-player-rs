@@ -19,20 +19,35 @@ pub fn App() -> Element {
     let system_scheme = use_signal(|| None::<ResolvedTheme>);
     let mut resolved = use_signal(|| ResolvedTheme::Light);
 
-    // Load theme preference from storage (web, after hydration)
-    #[cfg(feature = "web")]
+    // Load theme preference from storage (all WebView targets, after hydration)
+    #[cfg(not(feature = "server"))]
     use_effect(move || {
         spawn(async move {
-            let default_value = serde_json::json!("system");
-            let result = crate::video_js::getSetting("theme_preference", default_value).await;
-            if let Ok(serde_json::Value::String(s)) = result {
+            let mut eval = document::eval(
+                r#"
+                (function() {
+                    try {
+                        var raw = localStorage.getItem('wco-player-settings');
+                        if (raw) {
+                            var s = JSON.parse(raw);
+                            dioxus.send(s.theme_preference || 'system');
+                        } else {
+                            dioxus.send('system');
+                        }
+                    } catch(e) {
+                        dioxus.send('system');
+                    }
+                })();
+                "#,
+            );
+            if let Ok(s) = eval.recv::<String>().await {
                 preference.set(ThemePreference::from_str(&s));
             }
         });
     });
 
-    // Poll system color scheme (web) so resolved theme stays in sync when preference is System
-    #[cfg(feature = "web")]
+    // Poll system color scheme (all WebView targets) so resolved theme stays in sync when preference is System
+    #[cfg(not(feature = "server"))]
     use_effect(move || {
         let mut system_scheme = system_scheme;
         spawn(async move {

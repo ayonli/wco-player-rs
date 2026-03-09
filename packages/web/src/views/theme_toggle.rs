@@ -17,10 +17,24 @@ pub fn ThemeToggle() -> Element {
             ResolvedTheme::Dark => ThemePreference::Light,
         };
         preference.set(next);
-        #[cfg(feature = "web")]
-        spawn(async move {
-            let _ = crate::video_js::setSetting("theme_preference", next.as_str().to_string()).await;
-        });
+        #[cfg(not(feature = "server"))]
+        {
+            let theme_str = next.as_str();
+            let js = format!(
+                r#"
+                (function() {{
+                    try {{
+                        var raw = localStorage.getItem('wco-player-settings');
+                        var s = raw ? JSON.parse(raw) : {{}};
+                        s.theme_preference = '{}';
+                        localStorage.setItem('wco-player-settings', JSON.stringify(s));
+                    }} catch(e) {{}}
+                }})();
+                "#,
+                theme_str
+            );
+            let _ = document::eval(&js);
+        }
     };
 
     let (icon, title) = match resolved() {

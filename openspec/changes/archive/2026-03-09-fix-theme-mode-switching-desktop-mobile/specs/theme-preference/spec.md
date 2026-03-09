@@ -1,25 +1,4 @@
-## ADDED Requirements
-
-### Requirement: User can set theme preference
-
-The system SHALL allow the user to choose a theme preference of **Light**, **Dark**, or **System**. The system SHALL apply the chosen theme to the entire application UI on all platforms (web, desktop, and mobile) by setting the `data-theme` attribute on the document root element via `document::eval`.
-
-#### Scenario: User selects Light
-
-- **WHEN** the user sets the theme preference to Light
-- **THEN** the application SHALL display in light theme (light backgrounds, dark text) across all screens on all platforms
-
-#### Scenario: User selects Dark
-
-- **WHEN** the user sets the theme preference to Dark
-- **THEN** the application SHALL display in dark theme (dark backgrounds, light text) across all screens on all platforms
-
-#### Scenario: User selects System
-
-- **WHEN** the user sets the theme preference to System
-- **THEN** the application SHALL follow the operating system or browser color scheme (`prefers-color-scheme`) on all platforms and SHALL update automatically when the system preference changes
-
----
+## MODIFIED Requirements
 
 ### Requirement: Theme preference is persisted
 
@@ -42,21 +21,26 @@ The system SHALL persist the user's theme preference so that it is restored on t
 
 ---
 
-### Requirement: User can change theme from the UI
+### Requirement: User can set theme preference
 
-The system SHALL provide a visible control (e.g. toggle or dropdown in header or navigation) that allows the user to change the theme preference without leaving the current page.
+The system SHALL allow the user to choose a theme preference of **Light**, **Dark**, or **System**. The system SHALL apply the chosen theme to the entire application UI on all platforms (web, desktop, and mobile) by setting the `data-theme` attribute on the document root element via `document::eval`.
 
-#### Scenario: Changing theme from control
+#### Scenario: User selects Light
 
-- **WHEN** the user activates the theme control and selects a different option (Light, Dark, or System)
-- **THEN** the application SHALL update the visible theme immediately and SHALL persist the new preference
+- **WHEN** the user sets the theme preference to Light
+- **THEN** the application SHALL display in light theme (light backgrounds, dark text) across all screens on all platforms
 
-#### Scenario: Theme control is discoverable
+#### Scenario: User selects Dark
 
-- **WHEN** the user is on a main screen (e.g. search or player)
-- **THEN** the theme control SHALL be present in a consistent, visible location (e.g. header or nav)
+- **WHEN** the user sets the theme preference to Dark
+- **THEN** the application SHALL display in dark theme (dark backgrounds, light text) across all screens on all platforms
 
----
+#### Scenario: User selects System
+
+- **WHEN** the user sets the theme preference to System
+- **THEN** the application SHALL follow the operating system or browser color scheme (`prefers-color-scheme`) on all platforms and SHALL update automatically when the system preference changes
+
+## ADDED Requirements
 
 ### Requirement: Theme application works on desktop and mobile
 
@@ -81,8 +65,6 @@ The system SHALL apply the `data-theme` attribute to the document root on deskto
 
 - **WHEN** the user toggles the theme on the mobile application
 - **THEN** the document root `data-theme` attribute SHALL update immediately and the new preference SHALL be persisted to `localStorage`
-
----
 
 ### Requirement: System color scheme detection works on desktop and mobile
 
