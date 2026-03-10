@@ -1,4 +1,48 @@
-# Development
+# WCO Player
+
+Watch Cartoon Online Player in Rust with Dioxus for multiple platforms.
+
+## CMD Commands
+
+**Web App**
+
+```sh
+npm run dev:web # Start the web app in development mode
+npm run build:web # Build the web app in release mode for the current OS and Arch
+npm run build:web:openwrt # Build the web app in release mode for OpenWrt
+```
+
+**Desktop App**
+
+```sh
+npm run dev:desktop # Start the desktop app in development mode
+npm run build:desktop # Build the web app in release mode for the current OS and Arch
+```
+
+**Mobile App**
+
+```sh
+npm run dev:ios # Start the iOS app in development mode
+npm run dev:android # Start the Android app in development mode
+npm run build:ios # Build the iOS app in release mode
+npm run build:android # Build the Android app in release mode
+```
+
+**Coding Style**
+
+```sh
+npm run sanitize # Lint and format both Rust and TS code
+npm run sanitize:rs # Lint and format only the Rust Code
+npm run sanitize:ts # Lint and format only the TS Code
+```
+
+## Toolchain Prerequisites
+
+- Rust v1.90+
+- Node.js v22.0+ (For TypeScript compiler)
+- Deno v2.5+ (For linting and formatting TS code)
+
+## Development
 
 Your new workspace contains a member crate for each of the web, desktop and mobile platforms, a `ui` crate for shared components and a `api` crate for shared backend logic:
 
@@ -19,7 +63,7 @@ your_project/
       └─ ... # Component shared between multiple platforms
 ```
 
-## Platform crates
+### Platform crates
 
 Each platform crate contains the entry point for the platform, and any assets, components and dependencies that are specific to that platform. For example, the desktop crate in the workspace looks something like this:
 
@@ -37,7 +81,7 @@ desktop/ # The desktop crate contains all platform specific UI, logic and depend
 
 When you start developing with the workspace setup each of the platform crates will look almost identical. The UI starts out exactly the same on all platforms. However, as you continue developing your application, this setup makes it easy to let the views for each platform change independently.
 
-## Shared UI crate
+### Shared UI crate
 
 The workspace contains a `ui` crate with components that are shared between multiple platforms. You should put any UI elements you want to use in multiple platforms in this crate. You can also put some shared client side logic in this crate, but be careful to not pull in platform specific dependencies. The `ui` crate starts out something like this:
 
@@ -50,7 +94,7 @@ ui/
 │  ├─ navbar.rs # The Navbar component that will be used in the layout of every platform's router
 ```
 
-## Shared backend logic
+### Shared backend logic
 
 The workspace contains a `api` crate with shared backend logic. This crate defines all of the shared server functions for all platforms. Server functions are async functions that expose a public API on the server. They can be called like a normal async function from the client. When you run `dx serve`, all of the server functions will be collected in the server build and hosted on a public API for the client to call. The `api` crate starts out something like this:
 
@@ -58,18 +102,4 @@ The workspace contains a `api` crate with shared backend logic. This crate defin
 api/
 ├─ src/
 │  ├─ lib.rs # Exports a server function that echos the input string
-```
-
-### Serving Your App
-
-Navigate to the platform crate of your choice:
-
-```bash
-cd web
-```
-
-and serve:
-
-```bash
-dx serve
 ```

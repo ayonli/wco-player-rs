@@ -1,7 +1,7 @@
 {
     "name": "wco-player",
     "version": "0.1.0",
-    "description": "A Watch Cartoon Online player.",
+    "description": "Watch Cartoon Online Player in Rust with Dioxus for multiple platforms.",
     "keywords": [
         "wco",
         "player"
