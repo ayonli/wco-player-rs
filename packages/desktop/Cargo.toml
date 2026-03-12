@@ -6,6 +6,7 @@ build = "build.rs"
 
 [dependencies]
 dioxus = { workspace = true, features = ["router", "desktop"] }
+image = { version = "0.25.10", features = ["png", "jpeg"] }
 web = { workspace = true, features = ["desktop"] }
 
 [features]
