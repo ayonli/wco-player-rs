@@ -24,13 +24,17 @@ fn main() {
     let icon = load_icon(include_bytes!("../assets/icon.png"));
     let window = WindowBuilder::new()
         .with_window_icon(Some(icon.clone()))
-        .with_title("WCO Player")
+        .with_title("WcoPlayer")
         .with_always_on_top(false)
         .with_resizable(true)
         .with_inner_size(LogicalSize::new(1280.0, 800.0));
 
     let server_port = start_video_server();
-    let cfg = Config::new().with_window(window).with_icon(icon);
+    let mut cfg = Config::new().with_window(window).with_icon(icon);
+
+    if cfg!(not(target_os = "macos")) {
+        cfg = cfg.with_menu(None)
+    }
 
     dioxus::LaunchBuilder::new()
         .with_cfg(cfg)

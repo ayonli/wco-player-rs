@@ -1,9 +1,9 @@
 [application]
-name = "WCO Player"
+name = "WcoPlayer"
 default_platform = "web"
 
 [web.app]
-title = "WCO Player"
+title = "WcoPlayer"
 
 [build]
 # Client target for WASM compilation

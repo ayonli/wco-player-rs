@@ -1,5 +1,5 @@
 [application]
-name = "WCO Player"
+name = "WcoPlayer"
 default_platform = "desktop"
 
 [bundle]

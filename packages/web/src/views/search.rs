@@ -73,7 +73,7 @@ pub fn Search() -> Element {
                             height: Some(24),
                             style: Some("vertical-align: middle; margin-right: 0.5rem;".to_string()),
                         }
-                        "WCO Player"
+                        "WcoPlayer"
                     }
                     ThemeToggle {}
                 }

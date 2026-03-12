@@ -1,4 +1,4 @@
-# WCO Player
+# WcoPlayer
 
 Watch Cartoon Online Player in Rust with Dioxus for multiple platforms.
 

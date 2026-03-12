@@ -1,6 +1,6 @@
 ## Context
 
-The app is a Dioxus-based wco player with web and desktop targets. Theme today is inconsistent: `dx-components-theme.css` uses `prefers-color-scheme` for dioxus components, while `player.css` uses fixed light variables (--bg-color, --text-color, etc.). There is no stored user preference or UI to change theme. We need a single, user-controlled theme (Light / Dark / System) applied everywhere and persisted.
+The app is a Dioxus-based Watch Cartoon Online player with web and desktop targets. Theme today is inconsistent: `dx-components-theme.css` uses `prefers-color-scheme` for dioxus components, while `player.css` uses fixed light variables (--bg-color, --text-color, etc.). There is no stored user preference or UI to change theme. We need a single, user-controlled theme (Light / Dark / System) applied everywhere and persisted.
 
 ## Goals / Non-Goals
 
