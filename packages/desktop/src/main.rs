@@ -30,7 +30,11 @@ fn main() {
         .with_inner_size(LogicalSize::new(1280.0, 800.0));
 
     let server_port = start_video_server();
-    let cfg = Config::new().with_window(window).with_icon(icon);
+    let mut cfg = Config::new().with_window(window).with_icon(icon);
+
+    if cfg!(any(target_os = "linux", target_os = "windows")) {
+        cfg = cfg.with_menu(None)
+    }
 
     dioxus::LaunchBuilder::new()
         .with_cfg(cfg)
