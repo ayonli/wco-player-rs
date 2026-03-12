@@ -8,9 +8,15 @@ publisher = "ayon.li"
 # Icons for different platforms
 # macOS uses .icns, Windows uses .ico, Linux uses .png
 icon = [
-    "./assets/icon.icns", # macOS
-    "./assets/icon.png",  # Linux (and fallback)
-    "./assets/icon.ico",  # Windows
+    "./assets/icon.icns",     # macOS
+    "./assets/icon.ico",      # Windows
+    "./assets/icon_1024.png", # Linux (and fallback)
+    "./assets/icon_512.png",
+    "./assets/icon_256.png",
+    "./assets/icon_128.png",
+    "./assets/icon_64.png",
+    "./assets/icon_32.png",
+    "./assets/icon_16.png",
 ]
 
 [bundle.deb]
