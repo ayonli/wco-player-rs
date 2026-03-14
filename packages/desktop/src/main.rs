@@ -21,7 +21,7 @@ fn load_icon(bytes: &[u8]) -> Icon {
 }
 
 fn main() {
-    let icon = load_icon(include_bytes!("../assets/icon_256.png"));
+    let icon = load_icon(include_bytes!("../icons/icon_256.png"));
     let window = WindowBuilder::new()
         .with_window_icon(Some(icon.clone()))
         .with_title("WcoPlayer")

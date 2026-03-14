@@ -20,6 +20,11 @@
         "verbatimModuleSyntax": true,
         "jsx": "react-jsx",
         "target": "esnext",
+        "types": [],
+        "lib": [
+            "ESNext",
+            "DOM"
+        ],
         "skipLibCheck": true
     },
     "exclude": [

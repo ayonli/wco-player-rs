@@ -5,10 +5,3 @@ default_platform = "ios"
 [bundle]
 identifier = "com.ayonli.WcoPlayer"
 publisher = "ayon.li"
-# Icons for different platforms
-# macOS uses .icns, Windows uses .ico, Linux uses .png
-icon = [
-    "./assets/icon.icns", # macOS
-    "./assets/icon.png",  # Linux (and fallback)
-    "./assets/icon.ico",  # Windows
-]
